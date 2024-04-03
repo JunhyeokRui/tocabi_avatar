@@ -1833,10 +1833,12 @@ public:
     double param_R_dcm_x_;
     double param_R_f_x_;
     double param_R_df_x_;
+    double param_f_x_max_;
     double param_Q_dcm_y_;
     double param_R_dcm_y_;
     double param_R_f_y_;
     double param_R_df_y_;
+    double param_f_y_max_;
     double param_Q_dcm_z_;
     double param_R_dcm_z_;
     double param_ext_force_time_;
@@ -1859,6 +1861,9 @@ public:
     Eigen::MatrixXd rfoot_prev_thread_;
     Eigen::MatrixXd foot_terrain_int_;
     
+    double param_R_df_y_calc_;
+    double param_R_df_y_error_;
+
     ///z mpc
     Eigen::Vector3d MPC_z_;
     Eigen::Vector3d MPC_z_p_;
