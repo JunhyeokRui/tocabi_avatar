@@ -20958,7 +20958,7 @@ void AvatarController::CP_compen_MJ()
     Tau_CP(5) = -0 * F_L * del_zmp(1);  // L roll
     Tau_CP(11) = -0 * F_R * del_zmp(1); // R roll
 }
-/*
+
 //real robot experiment
 void AvatarController::CP_compen_MJ_FT() 
 { // 기존 알고리즘에서 바꾼거 : 0. previewcontroller에서 ZMP_Y_REF_ 변수 추가 1. zmp offset 2. getrobotstate에서 LPF 3. supportToFloatPattern 함수 4. Tau_CP -> 0  5. getfoottrajectory에서 발의 Euler angle
@@ -20969,7 +20969,8 @@ void AvatarController::CP_compen_MJ_FT()
     double zmp_offset = 0;
     double alpha_new = 0;
 
-    zmp_offset = 0.015; // 0.9초
+    //zmp_offset = 0.015; // 0.9초
+    zmp_offset = 0.0; // econom2
     //   zmp_offset = 0.02; // 1.1초
     // zmp_offset = 0.015; // 1.3초
 
@@ -21020,8 +21021,38 @@ void AvatarController::CP_compen_MJ_FT()
         ZMP_Y_REF_alpha_ = ZMP_Y_REF_;
     }
 
-    del_zmp(0) = des_zmp_interpol_(0) - ZMP_X_REF_;
-    del_zmp(1) = des_zmp_interpol_(1) - ZMP_Y_REF_alpha_;
+    double ZMP_X_DES_CALC = 0.0;
+    double ZMP_Y_DES_CALC = 0.0;
+    double lambda_desired = 0.0;
+
+    if(qcqp_int == 0)
+    {
+        del_zmp(0) = cp_des_zmp_x_ - ZMP_X_REF_;
+        del_zmp(1) = cp_des_zmp_y_ - ZMP_Y_REF_alpha_;
+        //del_zmp(0) = des_zmp_interpol_(0) - ZMP_X_REF_;
+        //del_zmp(1) = des_zmp_interpol_(1) - ZMP_Y_REF_alpha_;
+
+        ZMP_X_DES_CALC = ZMP_X_REF_ + del_zmp(0);
+        ZMP_Y_DES_CALC = ZMP_Y_REF_alpha_ + del_zmp(1);
+    }
+    else if (qcqp_int == 1)
+    {
+        del_zmp(0) = MPC_dcm_zmp_r_(0) - ZMP_X_REF_;
+        del_zmp(1) = MPC_dcm_zmp_r_(1) - ZMP_Y_REF_alpha_;
+        lambda_desired = MPC_dcm_lambda_r_;
+        //del_zmp(0) = dcm_zmp_i_(0) - ZMP_X_REF_;
+        //del_zmp(1) = dcm_zmp_i_(1) - ZMP_Y_REF_alpha_;
+        //lambda_desired = dcm_lambda_i_;
+
+        ZMP_X_DES_CALC = ZMP_X_REF_ + del_zmp(0);
+        ZMP_Y_DES_CALC = ZMP_Y_REF_alpha_ + del_zmp(1);
+    }
+    else if(qcqp_int == 2)
+    {
+        del_zmp.setZero();
+        ZMP_X_DES_CALC = ZMP_X_REF_;
+        ZMP_Y_DES_CALC = ZMP_Y_REF_alpha_;
+    }
 
     ////////////////////////
     //   double A = 0, B = 0, d = 0, X1 = 0, Y1 = 0, e_2 = 0, L = 0, l = 0;
@@ -21034,7 +21065,13 @@ void AvatarController::CP_compen_MJ_FT()
     //   e_2 = X1*X1 + Y1*Y1;
     //   l = sqrt(e_2 - d*d);
     //   alpha_new = l/L;
-    alpha = (ZMP_Y_REF_alpha_ + 1 * del_zmp(1) - rfoot_support_current_.translation()(1)) / (lfoot_support_current_.translation()(1) - rfoot_support_current_.translation()(1));
+    
+    double calc_z_max = 0.08;
+    double alpha_zmp_calc = ZMP_Y_DES_CALC;
+
+    alpha = (alpha_zmp_calc - (rfoot_support_current_.translation()(1) + calc_z_max)) / ((lfoot_support_current_.translation()(1) - calc_z_max) - (rfoot_support_current_.translation()(1) + calc_z_max));
+
+    //alpha = (ZMP_Y_REF_alpha_ + 1 * del_zmp(1) - rfoot_support_current_.translation()(1)) / (lfoot_support_current_.translation()(1) - rfoot_support_current_.translation()(1));
     // cout << alpha << "," << ZMP_Y_REF_ << "," << rfoot_support_current_.translation()(1) << "," << lfoot_support_current_.translation()(1) - rfoot_support_current_.translation()(1) << endl;
     //  로봇에서 구현할때 alpha가 0~1로 나오는지 확인, ZMP offset 0으로 해야됨.
     if (alpha > 1)
@@ -21050,10 +21087,31 @@ void AvatarController::CP_compen_MJ_FT()
     //   else if(alpha_new < 0)
     //   { alpha_new = 0; }
 
-    double real_robot_mass_offset_ = 52; // 42 75
+    //double real_robot_mass_offset_ = 52; // 42 75
+    double real_robot_mass_offset_ = 52/GRAVITY; // 42 75
 
     F_R = -(1 - alpha) * (rd_.link_[COM_id].mass * GRAVITY + real_robot_mass_offset_ + 0*15);
     F_L = -alpha * (rd_.link_[COM_id].mass * GRAVITY + real_robot_mass_offset_ - 0*15); // alpha가 0~1이 아니면 desired force가 로봇 무게보다 계속 작게나와서 지면 반발력을 줄이기위해 다리길이를 줄임.
+
+    double fr, fl;
+    if(qcqp_int == 0)
+    {
+        fr = -(1 - alpha) * (rd_.link_[COM_id].mass + real_robot_mass_offset_) * GRAVITY;
+        fl = -alpha * (rd_.link_[COM_id].mass + real_robot_mass_offset_) * GRAVITY;
+    }
+    else if(qcqp_int == 1)
+    {
+        //double dcm_mpc_i_z_acc = lambda_desired*qcqp_mpc_i_(6);
+        //double dcm_mpc_i_z_acc = GRAVITY;
+        double dcm_mpc_i_z_acc = lambda_desired*com_support_current_(2);
+        fr = -(1 - alpha) * (rd_.link_[COM_id].mass + real_robot_mass_offset_) * dcm_mpc_i_z_acc;
+        fl = -alpha * (rd_.link_[COM_id].mass + real_robot_mass_offset_) * dcm_mpc_i_z_acc;
+    }
+    else if(qcqp_int == 2)
+    {
+        fr = -(1 - alpha) * (rd_.link_[COM_id].mass + real_robot_mass_offset_) * GRAVITY;
+        fl = -alpha * (rd_.link_[COM_id].mass + real_robot_mass_offset_) * GRAVITY;
+    }
 
     if (walking_tick_mj == 0)
     {
@@ -21065,7 +21123,8 @@ void AvatarController::CP_compen_MJ_FT()
     }
 
     //////////// Force
-    F_F_input_dot = 0.0001 * ((l_ft_LPF(2) - r_ft_LPF(2)) - (F_L - F_R)) - 3.0 * F_F_input; // 0.9초 0.0001/ 3.0
+    //F_F_input_dot = 0.0001 * ((l_ft_LPF(2) - r_ft_LPF(2)) - (F_L - F_R)) - 3.0 * F_F_input; // 0.9초 0.0001/ 3.0
+    F_F_input_dot = 0.0001 * ((l_ft_(2) - r_ft_(2)) - (fl - fr)) - 3.0 * F_F_input;
 
     F_F_input = F_F_input + F_F_input_dot * del_t;
 
@@ -21089,8 +21148,11 @@ void AvatarController::CP_compen_MJ_FT()
 
     //////////// Torque
     // X,Y 축을 X,Y 방향으로 헷갈렸었고, 위치 명령을 발목 IK각도에 바로 넣었었음.
-    Tau_all_x = -((rfoot_support_current_.translation()(1) - (ZMP_Y_REF_alpha_ + del_zmp(1))) * F_R + (lfoot_support_current_.translation()(1) - (ZMP_Y_REF_alpha_ + del_zmp(1))) * F_L);
-    Tau_all_y = -((rfoot_support_current_.translation()(0) - (ZMP_X_REF_ + del_zmp(0))) * F_R + (lfoot_support_current_.translation()(0) - (ZMP_X_REF_ + del_zmp(0))) * F_L);
+    //Tau_all_x = -((rfoot_support_current_.translation()(1) - (ZMP_Y_REF_alpha_ + del_zmp(1))) * F_R + (lfoot_support_current_.translation()(1) - (ZMP_Y_REF_alpha_ + del_zmp(1))) * F_L);
+    //Tau_all_y = -((rfoot_support_current_.translation()(0) - (ZMP_X_REF_ + del_zmp(0))) * F_R + (lfoot_support_current_.translation()(0) - (ZMP_X_REF_ + del_zmp(0))) * F_L);
+
+    Tau_all_x = -((rfoot_support_current_.translation()(1) - ZMP_Y_DES_CALC) * fr + (lfoot_support_current_.translation()(1) - ZMP_Y_DES_CALC) * fl);
+    Tau_all_y = -((rfoot_support_current_.translation()(0) - ZMP_X_DES_CALC) * fr + (lfoot_support_current_.translation()(0) - ZMP_X_DES_CALC) * fl);
 
     if (Tau_all_x > 100)
     {
@@ -21215,8 +21277,8 @@ void AvatarController::CP_compen_MJ_FT()
     // MJ_graph << Tau_L_x << "," << Tau_R_x << "," << l_ft_LPF(3) << "," << r_ft_LPF(3) << "," << Tau_L_y << "," << Tau_R_y << "," << l_ft_LPF(4) << "," << r_ft_LPF(4) << "," << F_F_input << endl;
     // MJ_graph << ZMP_Y_REF_ << "," << alpha << "," << ZMP_Y_REF_alpha << endl;
     // MJ_graph << Tau_all_y << "," << Tau_L_y << "," << Tau_R_y << "," << l_ft_(4) << "," << r_ft_(4) << "," << cp_measured_(0) << "," << cp_desired_(0) << endl;
-}*/
-
+}
+/*
 //simulation
 void AvatarController::CP_compen_MJ_FT()
 { 
@@ -21461,6 +21523,7 @@ void AvatarController::CP_compen_MJ_FT()
   
     // MJ_graph << stepping_input_(0) << "," << stepping_input_(1) << "," << t_total_ / hz_ << "," << ZMP_Y_REF_alpha_ + del_zmp(1) << "," << ZMP_Y_REF_alpha_ << endl;
 }
+*/
 
 void AvatarController::CentroidalMomentCalculator_new()
 {
