@@ -66,6 +66,7 @@ AvatarController::AvatarController(RobotData &rd) : rd_(rd)
     std::string urdf_path, desc_package_path;
     ros::param::get("/tocabi_controller/urdf_path", desc_package_path);
     
+    /*
     ros::param::get("/econom2_qcqp_int", param_qcqp_int_);
     ros::param::get("/econom2_Qcpz", param_Qcpz_);
     ros::param::get("/econom2_Qcvz", param_Qcvz_);
@@ -98,6 +99,7 @@ AvatarController::AvatarController(RobotData &rd) : rd_(rd)
 
     ros::param::get("/econom2_R_df_y_calc",param_R_df_y_calc_);
     ros::param::get("/econom2_R_df_y_error",param_R_df_y_error_);
+    */
     // if (urdfmode)
     // {
     //     urdf_path = desc_package_path + "/dyros_tocabi_ankleRollDamping.urdf";
@@ -765,7 +767,8 @@ void AvatarController::computeSlow()
                 torque_upper_.setZero();
                 torque_upper_.segment(12, MODEL_DOF - 12) = rd_.torque_desired.segment(12, MODEL_DOF - 12);
 
-                qcqp_int = param_qcqp_int_; // 0 MJ_ICRA 1 DCM 2 Ding
+                //qcqp_int = param_qcqp_int_; // 0 MJ_ICRA 1 DCM 2 Ding
+                qcqp_int = 1;
                 if(qcqp_int == 0) { cout << "MJ ICRA" << endl; }
                 else if(qcqp_int == 1) { cout << "E DCM MPC" << endl; }
                 else if(qcqp_int == 2) { cout << "Ding" << endl; }
@@ -874,10 +877,14 @@ void AvatarController::computeSlow()
                 updateNextStepTime();
                 q_prev_MJ_ = rd_.q_;
 
-                if(current_step_num_ == param_ext_step_num_ && (walking_tick_mj >= t_start_ + t_rest_init_ + t_double1_ + param_ext_force_time_*hz_)  && (walking_tick_mj < t_start_ + t_rest_init_ + t_double1_ + (param_ext_force_time_ + 0.2)*hz_))
+                //if(current_step_num_ == param_ext_step_num_ && (walking_tick_mj >= t_start_ + t_rest_init_ + t_double1_ + param_ext_force_time_*hz_)  && (walking_tick_mj < t_start_ + t_rest_init_ + t_double1_ + (param_ext_force_time_ + 0.2)*hz_))
+                if(current_step_num_ == 6 && (walking_tick_mj >= t_start_ + t_rest_init_ + t_double1_ + 0.1*hz_)  && (walking_tick_mj < t_start_ + t_rest_init_ + t_double1_ + (0.1 + 0.2)*hz_))
                 { 
-                    mujoco_applied_ext_force_.data[0] = ext_force_*cos(ext_theta_*DEG2RAD);
-                    mujoco_applied_ext_force_.data[1] = ext_force_*sin(ext_theta_*DEG2RAD);
+                    //mujoco_applied_ext_force_.data[0] = ext_force_*cos(ext_theta_*DEG2RAD);
+                    //mujoco_applied_ext_force_.data[1] = ext_force_*sin(ext_theta_*DEG2RAD);
+                    //mujoco_applied_ext_force_.data[0] = -290.0;
+                    mujoco_applied_ext_force_.data[0] =  0.0;
+                    mujoco_applied_ext_force_.data[1] =  0.0;
                     mujoco_applied_ext_force_.data[2] =  0.0; //z-axis linear force
                     mujoco_applied_ext_force_.data[3] =  0.0; //x-axis angular moment
                     mujoco_applied_ext_force_.data[4] =  0.0; //y-axis angular moment
@@ -15498,7 +15505,9 @@ void AvatarController::comGenerator_thread(const unsigned int norm_size, const u
     Eigen::VectorXd temp_cx, temp_cy, temp_cz;
     double com_x_offset_ = 0.0 + 0.02*(bool)step_length_x_;
 
-    double h_diff = - param_Czref_calc_;// - 0.5*MPC_dcm_delf_fix_(0);// - sqrt(pow(0.5*MPC_dcm_delf_fix_(0),2) + pow(0.5*MPC_dcm_delf_fix_(1),2));
+    //double h_diff = - param_Czref_calc_;// - 0.5*MPC_dcm_delf_fix_(0);// - sqrt(pow(0.5*MPC_dcm_delf_fix_(0),2) + pow(0.5*MPC_dcm_delf_fix_(1),2));
+    //double h_diff = - 0.022;
+    double h_diff = - 0.025;
 
     ref_com_e_.block(0,0, norm_size,2) = ref_zmp_mj_.block(0,0, norm_size,2);
     ref_com_e_.block(0,2, norm_size,1).setConstant(zc_mj_ + h_diff);
@@ -17097,7 +17106,9 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
     Qcpx = 1e-1;        Qcvx = 1e-2;        Qcax = 1e-6;        Rcx = 1e-6;
     Qcpy = 5e-2;        Qcvy = 5e-3;        Qcay = 0e-0;        Rcy = 1e-6;
 
-    Qcpz = param_Qcpz_; Qcvz = param_Qcvz_; Qcaz = param_Qcaz_; Rcz = 1e-6;
+  //Qcpz = param_Qcpz_; Qcvz = param_Qcvz_; Qcaz = param_Qcaz_; Rcz = 1e-6;
+  //Qcpz = 5e-1;        Qcvz = 1e-1;        Qcaz = 1e-4;        Rcz = 1e-6;
+    Qcpz = 1e-0;        Qcvz = 1e-1;        Qcaz = 1e-4;        Rcz = 1e-6;
 
     int mpc_tick = walking_tick_e_qcqp_mpc_ - com_start_tick_e_qcqp_mpc_;
     const int N_qcqp = preview_window_qcqp_*mpc_qcqp_freq;
@@ -19734,21 +19745,26 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
 
     double Q_dcm_x, Q_dcm_y, Q_dcm_z, R_dcm_x, R_dcm_y, R_dcm_z, R_f_x, R_f_y, R_df_x, R_df_y;
 
-    Q_dcm_x = param_Q_dcm_x_,  Q_dcm_y = param_Q_dcm_y_,  Q_dcm_z = param_Q_dcm_z_;
-    R_dcm_x = param_R_dcm_x_,  R_dcm_y = param_R_dcm_y_,  R_dcm_z = param_R_dcm_z_;
-    R_f_x   = param_R_f_x_,    R_f_y   = param_R_f_y_;
-    R_df_x  = param_R_df_x_,   R_df_y  = param_R_df_y_; // stepping not 0, previous delf
+    //Q_dcm_x = param_Q_dcm_x_,  Q_dcm_y = param_Q_dcm_y_,  Q_dcm_z = param_Q_dcm_z_;
+    //R_dcm_x = param_R_dcm_x_,  R_dcm_y = param_R_dcm_y_,  R_dcm_z = param_R_dcm_z_;
+    //R_f_x   = param_R_f_x_,    R_f_y   = param_R_f_y_;
+    //R_df_x  = param_R_df_x_,   R_df_y  = param_R_df_y_; // stepping not 0, previous delf
+
+    Q_dcm_x = 1e-0,  Q_dcm_y = 1e-0,  Q_dcm_z = 9e-1;
+    R_dcm_x = 2e-1,  R_dcm_y = 1e-2,  R_dcm_z = 1e-1;
+    R_f_x   = 1e-2,  R_f_y   = 1e-2;
+    R_df_x  = 1e+1,  R_df_y  = 1e+2;
 
     if(current_step_num_qcqp_mpc_ == 0)
     { Q_dcm_y = 5e-1; R_dcm_y = 1e-0; }
 
     double delf_x_max = 0.25;
-    //double delf_x_min = 0.30;
-    double delf_x_min = param_f_x_max_;
+    double delf_x_min = 0.30;
+    //double delf_x_min = param_f_x_max_;
     double delf_dx_max = 0.5;
     double delf_dx_min = 0.5;
-    //double delf_y_max = 0.15;
-    double delf_y_max = param_f_y_max_;
+    double delf_y_max = 0.15;
+    //double delf_y_max = param_f_y_max_;
     double delf_y_min = 0.03;
     double delf_dy_max = 0.5;
     double delf_dy_min = 0.5;
@@ -19787,8 +19803,11 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
 
     vrp_k_1(0) = MPC_dcm_vrp_p_(0); vrp_k_1(1) = MPC_dcm_vrp_p_(1); vrp_k_1(2) = MPC_dcm_vrp_p_(2);
 
-    if(abs(dcm_measured_mpc_(1) - dcm_refy(0)) > param_R_df_y_error_)
-    { R_df_y = param_R_df_y_calc_; }
+    //if(abs(dcm_measured_mpc_(1) - dcm_refy(0)) > param_R_df_y_error_)
+    //{ R_df_y = param_R_df_y_calc_; }
+
+    if(abs(dcm_measured_mpc_(1) - dcm_refy(0)) > 0.14)
+    { R_df_y = 1e+2; }
 
     Eigen::MatrixXd Rmat_dcm_;  Rmat_dcm_.setZero(3*N_dcm,3*N_dcm);
     for(int i = 0; i < N_dcm; i++)
@@ -20649,12 +20668,14 @@ void AvatarController::GravityCalculate_MJ()
 
 void AvatarController::parameterSetting()
 {       
-    target_x_ = param_target_x_;
+    //target_x_ = param_target_x_;
+    target_x_ = 0.0;
     target_y_ = 0.0;
     target_z_ = 0.0;
     com_height_ = 0.71;
     target_theta_ = 0.0;
-    step_length_x_ = param_step_x_;
+    //step_length_x_ = param_step_x_;
+    step_length_x_ = 0.3;
     step_length_y_ = 0.0;
     is_right_foot_swing_ = 1;
 
@@ -20668,37 +20689,6 @@ void AvatarController::parameterSetting()
     t_total_const_ = 1.0 * hz_;
     //foot_height_ = 0.050 + 0.1*step_length_x_;      // 0.9 sec 0.05
     foot_height_ = 0.070 + 0.1*step_length_x_;      // 0.9 sec 0.05
-
-    // t_rest_init_ = 0.27*hz_;
-    // t_rest_last_ = 0.27*hz_;
-    // t_double1_ = 0.03*hz_;
-    // t_double2_ = 0.03*hz_;
-    // t_total_= 1.3*hz_;
-    // t_total_const_ = 1.3 * hz_; 
-
-    // t_rest_init_ = 0.12 * hz_; // Slack, 0.9 step time
-    // t_rest_last_ = 0.12 * hz_;
-    // t_double1_ = 0.03 * hz_;
-    // t_double2_ = 0.03 * hz_;
-    // t_total_ = 0.9 * hz_;
-    // t_total_const_ = 0.9 * hz_; 
-
-    // t_rest_init_ = 0.02 * hz_; // Slack, 0.9 step time
-    // t_rest_last_ = 0.02 * hz_;
-    // t_double1_ = 0.03 * hz_;
-    // t_double2_ = 0.03 * hz_;
-    // t_total_ = 0.5 * hz_;
-
-    // t_rest_init_ = 0.08 * hz_; // slack
-    // t_rest_last_ = 0.08 * hz_;
-    // t_double1_ = 0.03 * hz_;
-    // t_double2_ = 0.03 * hz_;
-    // t_total_ = 0.7 * hz_;
-
-    //t_rest_init_ = 0.2 * hz_; // slack
-    //t_rest_last_ = 0.2 * hz_;
-    //t_double1_ = 0.03 * hz_;
-    //t_double2_ = 0.03 * hz_;
 
     t_temp_ = 2.0 * hz_;
     t_last_ = t_total_ + t_temp_;
