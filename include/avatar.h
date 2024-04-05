@@ -1820,6 +1820,7 @@ public:
     Eigen::Vector2d zmp_max_;
     Eigen::Vector2d zmp_min_;
 
+    bool param_sim_mode_;
     int param_qcqp_int_;
     double param_Qcpz_;
     double param_Qcvz_;
