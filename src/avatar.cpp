@@ -9828,6 +9828,9 @@ void AvatarController::computeThread3()
             rfoot_prev_mpc_ = rfoot_prev_thread_;
             ref_com_e_mpc_ = ref_com_e_thread_;
 
+            if(walking_tick_e_qcqp_mpc_ < 100)
+            { ref_com_e_mpc_.col(1).setConstant(-0.1025); }
+
             atb_mpc_qcqp_update_ = false;
         }
 
@@ -15509,7 +15512,13 @@ void AvatarController::comGenerator_thread(const unsigned int norm_size, const u
 
     //double h_diff = - param_Czref_calc_;// - 0.5*MPC_dcm_delf_fix_(0);// - sqrt(pow(0.5*MPC_dcm_delf_fix_(0),2) + pow(0.5*MPC_dcm_delf_fix_(1),2));
     //double h_diff = - 0.022;
-    double h_diff = - 0.025;
+    //double h_diff = - 0.015;
+    double h_diff = - (zc_mj_ - 0.712);
+
+    if(walking_tick_e_qcqp_mpc_ <= 0.25*t_temp_)
+    { h_diff = - 0.0*(zc_mj_ - 0.712); }
+    else if (walking_tick_e_qcqp_mpc_ <= 0.75*t_temp_)
+    { h_diff = - 1.0*(zc_mj_ - 0.712); }
 
     ref_com_e_.block(0,0, norm_size,2) = ref_zmp_mj_.block(0,0, norm_size,2);
     ref_com_e_.block(0,2, norm_size,1).setConstant(zc_mj_ + h_diff);
@@ -17328,6 +17337,14 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
         Z_y_max(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) + 0.15;
         Z_y_min(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) - 0.15;
     }
+
+
+    if(walking_tick_e_qcqp_mpc_ < t_temp_)
+    { Qcpy = 1e-0; Qcvy = 1e-1; Qcay = 1e-6; }
+
+    Qycalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Ppu_qcqp_ + Pvu_qcqp_.transpose()*Qcvy*Qmat_qcqp_*Pvu_qcqp_ + Pau_qcqp_.transpose()*Qcay*Qmat_qcqp_*Pau_qcqp_ + Rcy*Qmat_qcqp_;
+    Qcalc_qcqp_ = SUx.transpose()*Qxcalc_qcqp_*SUx + SUy.transpose()*Qycalc_qcqp_*SUy + SUz.transpose()*Qzcalc_qcqp_*SUz;
+    gycalc_qcqp_ = SUy.transpose()*(Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Pps_qcqp_ + Pvu_qcqp_.transpose()*Qcvy*Qmat_qcqp_*Pvs_qcqp_ + Pau_qcqp_.transpose()*Qcay*Qmat_qcqp_*Pas_qcqp_)*ssy;
 
     c_x = gxcalc_qcqp_*MPC_qcqp_sqp_gurobi_ - SUx.transpose()*Ppu_qcqp_.transpose()*Qcpx*Qmat_qcqp_*C_x_ref;
     c_y = gycalc_qcqp_*MPC_qcqp_sqp_gurobi_ - SUy.transpose()*Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*C_y_ref;
@@ -19758,7 +19775,8 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
     R_df_x  = 1e+1,  R_df_y  = 1e+2;
 
     if(current_step_num_qcqp_mpc_ == 0)
-    { Q_dcm_y = 5e-1; R_dcm_y = 1e-0; }
+    //{ Q_dcm_y = 5e-1; R_dcm_y = 1e-0; }
+    { Q_dcm_y = 1e-0; R_dcm_y = 7e-1; }
 
     double delf_x_max = 0.25;
     double delf_x_min = 0.30;
@@ -21154,6 +21172,7 @@ void AvatarController::CP_compen_MJ_FT()
     //   F_T_L_x_input_dot = -0.015*(Tau_L_x - l_ft_LPF(3)) - Kl_roll*F_T_L_x_input;
     F_T_L_x_input_dot = -0.04 * (Tau_L_x - l_ft_LPF(3)) - 40.0 * F_T_L_x_input;
     if(param_sim_mode_) { F_T_L_x_input_dot = -0.1 * (Tau_L_x - l_ft_LPF(3)) - 50.0 * F_T_L_x_input; }
+    if(walking_tick_mj < 4.0*hz_) { F_T_L_x_input_dot = -0.04 * (Tau_L_x - l_ft_LPF(3)) - 40.0 * F_T_L_x_input; }
 
     F_T_L_x_input = F_T_L_x_input + F_T_L_x_input_dot * del_t;
     //   F_T_L_x_input = 0;
