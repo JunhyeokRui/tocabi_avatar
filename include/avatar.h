@@ -1773,6 +1773,7 @@ public:
     Eigen::VectorQd contact_torque_MJ;
     Eigen::VectorQd Initial_ref_q_;
     Eigen::VectorQd Initial_ref_upper_q_;
+    Eigen::VectorQd Initial_ref_lower_q_;
     Eigen::VectorQd Initial_current_q_;
     Eigen::VectorQd Initial_ref_q_walk_;
     bool walking_enable_ ;

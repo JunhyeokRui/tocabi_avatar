@@ -69,6 +69,14 @@ AvatarController::AvatarController(RobotData &rd) : rd_(rd)
     ros::param::get("/econom2_extforce",ext_force_);
     ros::param::get("/econom2_exttheta",ext_theta_);
 
+    ros::param::get("/econom2_R_dcm_x",param_R_dcm_x_);
+    ros::param::get("/econom2_R_f_x",param_R_f_x_);
+    ros::param::get("/econom2_R_df_x",param_R_df_x_);
+
+    ros::param::get("/econom2_R_dcm_y",param_R_dcm_y_);
+    ros::param::get("/econom2_R_f_y",param_R_f_y_);
+    ros::param::get("/econom2_R_df_y",param_R_df_y_);
+
     /*
     ros::param::get("/econom2_qcqp_int", param_qcqp_int_);
     ros::param::get("/econom2_Qcpz", param_Qcpz_);
@@ -677,9 +685,11 @@ void AvatarController::computeSlow()
             // edited by MJ (Initial upper body trajectory generation for CAM control /220110)
             CAM_upper_init_q_.setZero();
             Initial_ref_upper_q_.setZero();
+            Initial_ref_lower_q_.setZero();
             for (int i = 12; i < MODEL_DOF; i++)
             {
                 Initial_ref_upper_q_(i) = ref_q_(i);
+                Initial_ref_lower_q_(i - 12) = ref_q_(i - 12);
             }
             
             CAM_upper_init_q_(15) = + 15.0 * DEG2RAD; // Left Shoulder Yaw joint // 17 deg
@@ -716,7 +726,8 @@ void AvatarController::computeSlow()
         }  
 
         // edited by MJ (Initial upper body trajectory generation for CAM control /220110)
-        if(initial_tick_mj <= 2.0 * hz_)
+        //if(initial_tick_mj <= 2.0 * hz_)
+        if(initial_tick_mj <= 3.0 * hz_)
         {
             ref_q_(15) = DyrosMath::cubic(initial_tick_mj, 0, 2.0 * hz_, Initial_ref_upper_q_(15), CAM_upper_init_q_(15), 0.0, 0.0); // Left Shoulder Yaw joint
             ref_q_(16) = DyrosMath::cubic(initial_tick_mj, 0, 2.0 * hz_, Initial_ref_upper_q_(16), CAM_upper_init_q_(16), 0.0, 0.0); // Left Shoulder Pitch joint
@@ -732,7 +743,7 @@ void AvatarController::computeSlow()
                         
             initial_tick_mj ++;         
         }
-        
+
         for (int i = 0; i < MODEL_DOF; i++)
         {
             rd_.torque_desired(i) = Kp(i) * (ref_q_(i) - rd_.q_(i)) - Kd(i) * rd_.q_dot_(i) + 1.0 * Gravity_MJ_fast_(i);
@@ -9795,6 +9806,7 @@ void AvatarController::computeThread3()
             com_start_tick_e_qcqp_mpc_ = com_start_tick_e_qcqp_thread_;
             
             ref_zmp_wo_offset_mpc_ = ref_zmp_wo_offset_thread_;
+            ref_zmp_e_mpc_ = ref_zmp_e_thread_;
 
             max_zmp_e_mpc_ = max_zmp_e_thread_;
             min_zmp_e_mpc_ = min_zmp_e_thread_;
@@ -13315,8 +13327,11 @@ void AvatarController::addZmpOffset()
 
     if (qcqp_int == 1)
     {
-        lfoot_zmp_offset_ = -0.04;
-        rfoot_zmp_offset_ =  0.04;
+        lfoot_zmp_offset_ = -0.04 + (1 - (bool)current_step_num_)*0.01;
+        rfoot_zmp_offset_ =  0.04 - (1 - (bool)current_step_num_)*0.01;
+
+        //lfoot_zmp_offset_ = -0.03 + (1 - (bool)current_step_num_)*0.01;
+        //rfoot_zmp_offset_ =  0.03 - (1 - (bool)current_step_num_)*0.01;
     }
     else if (qcqp_int == 2)
     {
@@ -15520,7 +15535,10 @@ void AvatarController::comGenerator_thread(const unsigned int norm_size, const u
     else if (walking_tick_e_qcqp_mpc_ <= 0.75*t_temp_)
     { h_diff = - 1.0*(zc_mj_ - 0.712); }
 
-    ref_com_e_.block(0,0, norm_size,2) = ref_zmp_mj_.block(0,0, norm_size,2);
+    h_diff = 0.0;
+
+    //ref_com_e_.block(0,0, norm_size,2) = ref_zmp_mj_.block(0,0, norm_size,2);
+    ref_com_e_.block(0,0, norm_size,2) = ref_zmp_e_mpc_.block(0,0, norm_size,2);
     ref_com_e_.block(0,2, norm_size,1).setConstant(zc_mj_ + h_diff);
 }
 
@@ -17302,6 +17320,7 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
     {
         C_x_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,0);
         C_y_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,1);
+        //if(walking_tick_e_qcqp_mpc_ < t_temp_) { C_y_ref(i) = -0.1025; }
         C_z_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,2);
 
         lF_x_ref(i) = lfoot_prev_mpc_(mpc_tick + MPC_synchro_hz_*i,0);
@@ -17339,7 +17358,7 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
     }
 
 
-    if(walking_tick_e_qcqp_mpc_ < t_temp_)
+    if(walking_tick_e_qcqp_mpc_ < 0.25*t_temp_)
     { Qcpy = 1e-0; Qcvy = 1e-1; Qcay = 1e-6; }
 
     Qycalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Ppu_qcqp_ + Pvu_qcqp_.transpose()*Qcvy*Qmat_qcqp_*Pvu_qcqp_ + Pau_qcqp_.transpose()*Qcay*Qmat_qcqp_*Pau_qcqp_ + Rcy*Qmat_qcqp_;
@@ -19774,9 +19793,13 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
     R_f_x   = 1e-2,  R_f_y   = 1e-2;
     R_df_x  = 1e+1,  R_df_y  = 1e+2;
 
-    if(current_step_num_qcqp_mpc_ == 0)
-    //{ Q_dcm_y = 5e-1; R_dcm_y = 1e-0; }
-    { Q_dcm_y = 1e-0; R_dcm_y = 7e-1; }
+    Q_dcm_x = 1e-0, R_dcm_x = param_R_dcm_x_, R_f_x = param_R_f_x_, R_df_x = param_R_df_x_;
+    Q_dcm_y = 1e-0, R_dcm_y = param_R_dcm_y_, R_f_y = param_R_f_y_, R_df_y = param_R_df_y_;
+
+    //if(current_step_num_qcqp_mpc_ == 0)
+    if(walking_tick_e_qcqp_mpc_ < t_temp_)
+    { Q_dcm_y = 5e-1; R_dcm_y = 1e-0; }
+    //{ Q_dcm_y = 1e-0; R_dcm_y = 7e-1; }
 
     double delf_x_max = 0.25;
     double delf_x_min = 0.30;
@@ -20140,7 +20163,7 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
                 MPC_dcm_delf_ = dcm_SUf*MPC_qcqp_dcm_foot_u_;
                 
                 //if(mpc_tick < t_total_const_ - t_double2_ - t_rest_last_ - 0.1*hz_) { MPC_dcm_delf_fix_ = MPC_dcm_delf_; }
-                if(mpc_tick < t_total_const_ - t_double2_ - t_rest_last_ - 0.1*hz_) { MPC_dcm_delf_fix_ = MPC_dcm_delf_; }
+                if(mpc_tick < t_total_const_ - t_double2_ - t_rest_last_ - 0.2*hz_) { MPC_dcm_delf_fix_ = MPC_dcm_delf_; }
                 if(mpc_tick >= t_total_const_ - 0.049*hz_) { MPC_dcm_delf_fix_p_ = MPC_dcm_delf_fix_; }
 
                 if(atb_mpc_dcm_xyz_update_ == false)
@@ -20176,7 +20199,7 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
 
                 MPC_dcm_delf_p_ = MPC_dcm_delf_;
                 MPC_dcm_delf_ = dcm_SUf*MPC_qcqp_dcm_foot_u_;
-                if(mpc_tick < t_total_const_ - t_double2_ - t_rest_last_ - 0.1*hz_) { MPC_dcm_delf_fix_ = MPC_dcm_delf_; }
+                if(mpc_tick < t_total_const_ - t_double2_ - t_rest_last_ - 0.2*hz_) { MPC_dcm_delf_fix_ = MPC_dcm_delf_; }
                 if(mpc_tick >= t_total_const_ - 0.049*hz_) { MPC_dcm_delf_fix_p_ = MPC_dcm_delf_fix_; }
 
                 if(atb_mpc_dcm_xyz_update_ == false)
