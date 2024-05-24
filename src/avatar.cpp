@@ -8,8 +8,8 @@ ofstream e_mpc_time_graph("/home/econom2-20/data/e_mpc_time_graph.txt");
 //ofstream e_tmp_graph1("/home/econom2-20/data/e_tmp_graph1.txt");
 //ofstream e_tmp_graph2("/home/econom2-20/data/e_tmp_graph2.txt");
 ofstream e_tmp_graph3("/home/econom2-20/data/e_tmp_graph3.txt");
-//ofstream e_tmp_graph4("/home/econom2-20/data/e_tmp_graph4.txt");
-//ofstream e_tmp_graph5("/home/econom2-20/data/e_tmp_graph5.txt");
+ofstream e_tmp_graph4("/home/econom2-20/data/e_tmp_graph4.txt");
+ofstream e_tmp_graph5("/home/econom2-20/data/e_tmp_graph5.txt");
 //ofstream e_tmp_graph6("/home/econom2-20/data/e_tmp_graph6.txt");
 //ofstream e_tmp_graph7("/home/econom2-20/data/e_tmp_graph7.txt");
 //ofstream e_tmp_graph8("/home/econom2-20/data/e_tmp_graph8.txt");
@@ -796,7 +796,7 @@ void AvatarController::computeSlow()
             floatToSupportFootstep();      
 
             if (current_step_num_ < total_step_num_)
-            {   
+            {                   
                 getZmpTrajectory();
 
                 // getComTrajectory(); // 조현민꺼에서 프리뷰에서 CP 궤적을 생성하기 때문에 필요
@@ -9803,6 +9803,7 @@ void AvatarController::computeThread3()
 
             walking_tick_e_qcqp_mpc_ = walking_tick_e_qcqp_thread_;
             current_step_num_qcqp_mpc_ = current_step_num_qcqp_thread_;
+            total_step_num_mpc_ = total_step_num_;
             com_start_tick_e_qcqp_mpc_ = com_start_tick_e_qcqp_thread_;
             
             ref_zmp_wo_offset_mpc_ = ref_zmp_wo_offset_thread_;
@@ -9847,7 +9848,7 @@ void AvatarController::computeThread3()
         }
 
         thread3_hz_ = 20.0;
-        
+
         comGenerator_MPC_qcqp(thread3_hz_, 1.0/thread3_hz_, 1.2, 2000/thread3_hz_);
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
         e_mpc_time_graph << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count()*1e-6 << ",";
@@ -13327,11 +13328,11 @@ void AvatarController::addZmpOffset()
 
     if (qcqp_int == 1)
     {
+        //lfoot_zmp_offset_ = -0.04 - (1 - (bool)current_step_num_)*0.01 + 0.06*(bool)(target_x_);
+        //rfoot_zmp_offset_ =  0.04 + (1 - (bool)current_step_num_)*0.01 - 0.06*(bool)(target_x_);
+
         lfoot_zmp_offset_ = -0.04 + (1 - (bool)current_step_num_)*0.01;
         rfoot_zmp_offset_ =  0.04 - (1 - (bool)current_step_num_)*0.01;
-
-        //lfoot_zmp_offset_ = -0.03 + (1 - (bool)current_step_num_)*0.01;
-        //rfoot_zmp_offset_ =  0.03 - (1 - (bool)current_step_num_)*0.01;
     }
     else if (qcqp_int == 2)
     {
@@ -14122,8 +14123,12 @@ void AvatarController::getFootTrajectory_stepping()
           
     for (int i = 0; i < 6; i++)
     {
-        target_swing_foot(i) = foot_step_support_frame_(current_step_num_, i);        
+        target_swing_foot(i) = foot_step_support_frame_(current_step_num_, i);
     }
+    
+    if(abs(del_F_(0)) < 1e-2)
+    { target_swing_foot(0) = target_swing_foot(0) - 0.0075; }
+
     zmp_modif_time_margin_ = 0.1*hz_;
 
     if(walking_tick_mj == t_start_ + t_total_ - t_double2_ - t_rest_last_ - zmp_modif_time_margin_) // 조현민 처럼 Step으로 zmp를 변경하는게 아니라 부드럽게 바꿔줘도 좋을듯 / SSP 끝나기 0.1초 전 스윙 발 X,Y 고정
@@ -14167,6 +14172,7 @@ void AvatarController::getFootTrajectory_stepping()
     {        
         desired_swing_foot(0) = target_swing_foot(0) + del_F_(0);
         desired_swing_foot(1) = target_swing_foot(1) + del_F_(1);
+        desired_swing_foot(2) = target_swing_foot(2);
         //desired_swing_foot(0) = del_F_(0); // del_F_ is optimized by target_swing_foot_(0) + del_F_x
         //desired_swing_foot(1) = del_F_(1);
     }
@@ -14174,6 +14180,7 @@ void AvatarController::getFootTrajectory_stepping()
     {
         desired_swing_foot(0) = fixed_swing_foot(0);
         desired_swing_foot(1) = fixed_swing_foot(1);
+        desired_swing_foot(2) = target_swing_foot(2);
     }    
  
     // real robot experiment 
@@ -14188,7 +14195,7 @@ void AvatarController::getFootTrajectory_stepping()
             lfoot_trajectory_euler_support_.setZero();
 
             rfoot_trajectory_support_.translation() = rfoot_support_init_.translation();
-            rfoot_trajectory_support_.translation()(2) = 0;
+            //rfoot_trajectory_support_.translation()(2) = 0;
             rfoot_trajectory_euler_support_ = rfoot_support_euler_init_;
         }
         else if (foot_step_(current_step_num_, 6) == 0) // 오른발 지지
@@ -14197,7 +14204,7 @@ void AvatarController::getFootTrajectory_stepping()
             rfoot_trajectory_euler_support_.setZero();
 
             lfoot_trajectory_support_.translation() = lfoot_support_init_.translation();
-            lfoot_trajectory_support_.translation()(2) = 0;
+            //lfoot_trajectory_support_.translation()(2) = 0;
             lfoot_trajectory_euler_support_ = lfoot_support_euler_init_;
         }
 
@@ -14219,20 +14226,35 @@ void AvatarController::getFootTrajectory_stepping()
             if (walking_tick_mj < t_start_ + t_rest_init_ + t_double1_ + (t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0)
             {
                 rfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_ + t_rest_init_ + t_double1_, t_start_real_ + t_double1_ + (t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, 0, foot_height_, 0.0, 0.0);
+                
+                // down stair
+                //rfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_ + t_rest_init_ + t_double1_, t_start_real_ + t_double1_ + 0.8*(t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, rfoot_support_init_.translation()(2), rfoot_support_init_.translation()(2) + foot_height_, 0.0, 0.0);
+                // upward stair
+                //if(current_step_num_ == 4) { rfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_ + t_rest_init_ + t_double1_, t_start_real_ + t_double1_ + 0.2*(t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, rfoot_support_init_.translation()(2), rfoot_support_init_.translation()(2) + target_swing_foot(2) + 2.0*foot_height_, 0.0, 0.0); }
             }
             else
             {
-                rfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_ + (t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, t_start_ + t_total_ - t_rest_last_ - t_double2_, foot_height_, target_swing_foot(2), 0.0, 0.0);
+                //rfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_ + (t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, t_start_ + t_total_ - t_rest_last_ - t_double2_, foot_height_, target_swing_foot(2), 0.0, 0.0);
+                rfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_ + (t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, t_start_ + t_total_ - t_rest_last_ - t_double2_, rfoot_support_init_.translation()(2) + foot_height_, target_swing_foot(2), 0.0, 0.0);
+                // down stair
+                //rfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_ + 1.0*(t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, t_start_ + t_total_ - t_rest_last_ - t_double2_, rfoot_support_init_.translation()(2) + foot_height_, target_swing_foot(2), 0.0, 0.0);
+                // upward stair
+                //if(current_step_num_ == 4) { rfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_ + 1.2*(t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, t_start_ + t_total_ - t_rest_last_ - t_double2_, rfoot_support_init_.translation()(2) + target_swing_foot(2) + 2.0*foot_height_, target_swing_foot(2), 0.0, 0.0); }
             }
 
-            // for (int i = 0; i < 2; i++)
-            // {
-            //     rfoot_trajectory_support_.translation()(i) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_ + t_total_ - t_rest_last_ - t_double2_, rfoot_support_init_.translation()(i), target_swing_foot(i), 0.0, 0.0);
-            // }
+            for (int i = 0; i < 2; i++)
+            {
+                //downward stair
+                //rfoot_trajectory_support_.translation()(i) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_ + 0.9*(t_total_ - t_rest_last_ - t_double2_), rfoot_support_init_.translation()(i), desired_swing_foot(i), 0.0, 0.0);
+                //upward stair
+                //rfoot_trajectory_support_.translation()(i) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_ + 0.3*(t_total_ - t_rest_last_ - t_double2_), t_start_ + 1.0*(t_total_ - t_rest_last_ - t_double2_), rfoot_support_init_.translation()(i), desired_swing_foot(i), 0.0, 0.0);
+
+                rfoot_trajectory_support_.translation()(i) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_ + 1.0*(t_total_ - t_rest_last_ - t_double2_), rfoot_support_init_.translation()(i), desired_swing_foot(i), 0.0, 0.0);
+            }
 
             // 220422
-            rfoot_trajectory_support_.translation()(0) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_ + t_total_ - t_rest_last_ - t_double2_, rfoot_support_init_.translation()(0), desired_swing_foot(0), 0.0, 0.0);
-            rfoot_trajectory_support_.translation()(1) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_ + t_total_ - t_rest_last_ - t_double2_, rfoot_support_init_.translation()(1), desired_swing_foot(1), 0.0, 0.0);    
+            //rfoot_trajectory_support_.translation()(0) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_ + t_total_ - t_rest_last_ - t_double2_, rfoot_support_init_.translation()(0), desired_swing_foot(0), 0.0, 0.0);
+            //rfoot_trajectory_support_.translation()(1) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_ + t_total_ - t_rest_last_ - t_double2_, rfoot_support_init_.translation()(1), desired_swing_foot(1), 0.0, 0.0);    
             
             rfoot_trajectory_euler_support_(0) = 0;
             rfoot_trajectory_euler_support_(1) = 0;
@@ -14248,20 +14270,36 @@ void AvatarController::getFootTrajectory_stepping()
 
             if (walking_tick_mj < t_start_ + t_rest_init_ + t_double1_ + (t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0)
             {
-                lfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_real_ + t_double1_ + (t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, 0, foot_height_, 0.0, 0.0);
+                //lfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_real_ + t_double1_ + (t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, 0, foot_height_, 0.0, 0.0);
+                lfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_real_ + t_double1_ + 1.0*(t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, lfoot_support_init_.translation()(2), lfoot_support_init_.translation()(2) + foot_height_, 0.0, 0.0);
+                //lfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_real_ + t_double1_ + 1.0*(t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, lfoot_support_init_.translation()(2), lfoot_support_init_.translation()(2) + target_swing_foot(2) + foot_height_, 0.0, 0.0);
+
+                // upward stair
+                //if(current_step_num_ == 3) { lfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_real_ + t_double1_ + 0.7*(t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, lfoot_support_init_.translation()(2), lfoot_support_init_.translation()(2) + target_swing_foot(2) + 2.0*foot_height_, 0.0, 0.0); }
+                //lfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_real_ + t_double1_ + 0.2*(t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, lfoot_support_init_.translation()(2), lfoot_support_init_.translation()(2) + target_swing_foot(2) + 2.0*foot_height_, 0.0, 0.0);
             }
             else
             {
-                lfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_ + (t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, t_start_ + t_total_ - t_rest_last_ - t_double2_, foot_height_, target_swing_foot(2), 0.0, 0.0);
+                //lfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_ + (t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, t_start_ + t_total_ - t_rest_last_ - t_double2_, foot_height_, target_swing_foot(2), 0.0, 0.0);
+                //lfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_ + (t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, t_start_ + t_total_ - t_rest_last_ - t_double2_, lfoot_support_init_.translation()(2) + foot_height_, target_swing_foot(2), 0.0, 0.0);
+                lfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_ + 1.0*(t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, t_start_ + t_total_ - t_rest_last_ - t_double2_, lfoot_support_init_.translation()(2) + foot_height_, target_swing_foot(2), 0.0, 0.0);
+                //lfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_ + 1.2*(t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, t_start_ + t_total_ - t_rest_last_ - t_double2_, lfoot_support_init_.translation()(2) + target_swing_foot(2) + foot_height_, target_swing_foot(2), 0.0, 0.0);
+                //if(current_step_num_ == 3) { lfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_ + 1.2*(t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, t_start_ + t_total_ - t_rest_last_ - t_double2_, lfoot_support_init_.translation()(2) + target_swing_foot(2) + 2.0*foot_height_, target_swing_foot(2), 0.0, 0.0); }
+                //lfoot_trajectory_support_.translation()(2) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_ + 1.2*(t_total_ - t_rest_init_ - t_rest_last_ - t_double1_ - t_double2_) / 2.0, t_start_ + t_total_ - t_rest_last_ - t_double2_, lfoot_support_init_.translation()(2) + target_swing_foot(2) + 2.0*foot_height_, target_swing_foot(2), 0.0, 0.0);
             }
 
-            // for (int i = 0; i < 2; i++)
-            // {
-            //     lfoot_trajectory_support_.translation()(i) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_ + t_total_ - t_rest_last_ - t_double2_, lfoot_support_init_.translation()(i), target_swing_foot(i), 0.0, 0.0);
-            // }
+            for (int i = 0; i < 2; i++)
+            {
+                // downward stair
+                //lfoot_trajectory_support_.translation()(i) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_ + 0.9*(t_total_ - t_rest_last_ - t_double2_), lfoot_support_init_.translation()(i), desired_swing_foot(i), 0.0, 0.0);
+                // upward stair
+                //lfoot_trajectory_support_.translation()(i) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_+ 0.3*(t_total_ - t_rest_last_ - t_double2_), t_start_ + 1.0*(t_total_ - t_rest_last_ - t_double2_), lfoot_support_init_.translation()(i), desired_swing_foot(i), 0.0, 0.0);
+                lfoot_trajectory_support_.translation()(i) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_ + 1.0*(t_total_ - t_rest_last_ - t_double2_), lfoot_support_init_.translation()(i), desired_swing_foot(i), 0.0, 0.0);
+            }
+
             // 220422
-            lfoot_trajectory_support_.translation()(0) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_ + t_total_ - t_rest_last_ - t_double2_, lfoot_support_init_.translation()(0), desired_swing_foot(0), 0.0, 0.0);
-            lfoot_trajectory_support_.translation()(1) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_ + t_total_ - t_rest_last_ - t_double2_, lfoot_support_init_.translation()(1), desired_swing_foot(1), 0.0, 0.0);    
+            //lfoot_trajectory_support_.translation()(0) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_ + t_total_ - t_rest_last_ - t_double2_, lfoot_support_init_.translation()(0), desired_swing_foot(0), 0.0, 0.0);
+            //lfoot_trajectory_support_.translation()(1) = DyrosMath::cubic(walking_tick_mj, t_start_real_ + t_double1_, t_start_ + t_total_ - t_rest_last_ - t_double2_, lfoot_support_init_.translation()(1), desired_swing_foot(1), 0.0, 0.0);    
             
             lfoot_trajectory_euler_support_(0) = 0;
             lfoot_trajectory_euler_support_(1) = 0;
@@ -14310,7 +14348,22 @@ void AvatarController::getFootTrajectory_stepping()
 
             //lfoot_trajectory_support_.linear() = DyrosMath::rotateWithZ(lfoot_trajectory_euler_support_(2)) * DyrosMath::rotateWithY(lfoot_trajectory_euler_support_(1)) * DyrosMath::rotateWithX(lfoot_trajectory_euler_support_(0));
         }
-    }        
+    }
+
+    double calc_foot_desired_temp = 0.0;
+
+    //calc_foot_desired_temp = lfoot_trajectory_support_.translation()(0);
+    //lfoot_trajectory_support_.translation()(0) = lfoot_support_current_.translation()(0) + 1.0*(calc_foot_desired_temp - lfoot_support_current_.translation()(0));
+    //calc_foot_desired_temp = lfoot_trajectory_support_.translation()(2);
+    //lfoot_trajectory_support_.translation()(2) = lfoot_support_current_.translation()(2) + 1.0*(calc_foot_desired_temp - lfoot_support_current_.translation()(2));
+    //calc_foot_desired_temp = rfoot_trajectory_support_.translation()(0);
+    //rfoot_trajectory_support_.translation()(0) = rfoot_support_current_.translation()(0) + 1.0*(calc_foot_desired_temp - rfoot_support_current_.translation()(0));
+    //calc_foot_desired_temp = rfoot_trajectory_support_.translation()(2);
+    //rfoot_trajectory_support_.translation()(2) = rfoot_support_current_.translation()(2) + 1.0*(calc_foot_desired_temp - rfoot_support_current_.translation()(2));
+
+    e_tmp_graph4 << lfoot_trajectory_support_.translation()(2) << "," << rfoot_trajectory_support_.translation()(2) << "," 
+                 << lfoot_support_current_.translation()(2)    << "," << rfoot_support_current_.translation()(2)    << "," 
+                 << endl;
 }
 
 void AvatarController::preview_Parameter(double dt, int NL, Eigen::MatrixXd &Gi, Eigen::VectorXd &Gd, Eigen::MatrixXd &Gx, Eigen::MatrixXd &A, Eigen::VectorXd &B, Eigen::MatrixXd &C)
@@ -14596,6 +14649,10 @@ void AvatarController::getPelvTrajectory()
     double z_rot = foot_step_support_frame_(current_step_num_, 5);
 
     pelv_trajectory_support_.translation()(0) = pelv_support_current_.translation()(0) + 0.6 * (com_desired_(0) - 0*0.15 * damping_x - com_support_current_(0)); 
+    if(target_x_ > 0)
+    {
+        pelv_trajectory_support_.translation()(0) = pelv_support_current_.translation()(0) + 1.0 * (com_desired_(0) - com_support_current_(0)); 
+    }
 
     if(qcqp_int == 0)
     { 
@@ -15240,72 +15297,9 @@ void AvatarController::getComTrajectory_Z_e()
 
 void AvatarController::comRefGenerator_Z_e()
 {
-    unsigned int planning_step_num_ = 3;
-    unsigned int planning_com_size_tick = 0;
-
-    planning_com_size_tick = t_total_*(min((int)(total_step_num_ - current_step_num_), (int)planning_step_num_)) // time for rest step
-                         + (1-(bool)current_step_num_)*(t_temp_ + 1)                                             // time for init
-                         + (current_step_num_>=total_step_num_ - planning_step_num_)*4*hz_;                      // time for last
-
-    foot_terrain_int_.resize(total_step_num_,2); foot_terrain_int_.setZero();
-    
-    // stair setting
-    /*
-    if(walking_tick_mj >= 2.1*hz_)
-    { if(foot_step_support_frame_(current_step_num_,0) > 0) { height_diff = 0.2; height_diff = 0.2; }};
-    if(walking_tick_mj >= 2.1*hz_)
-    { foot_terrain_int_(4,0) = -1; foot_terrain_int_(5,0) = -1; foot_terrain_int_(8,0) = 1; foot_terrain_int_(9,0) = 1;}
-    
-    if(walking_tick_mj >= 9.1*hz_)
-    { if(foot_step_support_frame_(current_step_num_,0) > 0) { height_diff = 0.2; foot_height_ = 0.5;}};
-    if(walking_tick_mj >= 9.1*hz_)
-    { foot_terrain_int_(8,0) = 1;}
-
-    if(walking_tick_mj >= 10.1*hz_)
-    { if(foot_step_support_frame_(current_step_num_,0) > 0) { height_diff = 0.2; foot_height_ = 0.5;}};
-    if(walking_tick_mj >= 10.1*hz_)
-    { foot_terrain_int_(9,0) = 1; foot_terrain_int_(10,0) = 1; foot_terrain_int_(11,0) = 1;}
-    
-    if(walking_tick_mj >= 13.1*hz_)
-    { if(foot_step_support_frame_(current_step_num_,0) > 0) { height_diff = 0.2; foot_height_ = 0.3;}};
-
-    if(walking_tick_mj >= 14.1*hz_)
-    { if(foot_step_support_frame_(current_step_num_,0) > 0) { height_diff = 0.2; foot_height_ = 0.1;}};
-    */
-
+    foot_terrain_int_.resize(total_step_num_,2); foot_terrain_int_.setZero();   
+    foot_terrain_int_(3,0) = -1;
     footTerrainInt(foot_terrain_int_);
-    comGenerator(planning_com_size_tick, planning_step_num_);
-    ref_com_z_mpc_.resize(planning_com_size_tick,1);
-    ref_com_z_thread_.resize(planning_com_size_tick,1);
-    ref_com_e_mpc_.resize(planning_com_size_tick,3);
-    ref_com_e_thread_.resize(planning_com_size_tick,3);
-
-    //foot prev
-    foot_step_support_frame_(current_step_num_,0) += MPC_dcm_delf_r_(0);         foot_step_support_frame_(current_step_num_,1) += MPC_dcm_delf_r_(1);
-    if(current_step_num_ + 2 < total_step_num_ - 0)
-    {
-        foot_step_support_frame_(current_step_num_ + 1,0) += MPC_dcm_delf_r_(0); foot_step_support_frame_(current_step_num_ + 1,1) += MPC_dcm_delf_r_(1);
-        foot_step_support_frame_(current_step_num_ + 2,0) += MPC_dcm_delf_r_(0); foot_step_support_frame_(current_step_num_ + 2,1) += MPC_dcm_delf_r_(1);
-    }
-    foot_step_support_frame_(max(0,current_step_num_-2),0) -= delf_prev_step_(0);foot_step_support_frame_(max(0,current_step_num_-2),1) -= delf_prev_step_(1);
-
-    if(qcqp_int == 1)
-    { footPrevGenerator(planning_com_size_tick, planning_step_num_); }
-    else if (qcqp_int == 2)
-    { lfoot_prev_e_.setZero(planning_com_size_tick,3); rfoot_prev_e_.setZero(planning_com_size_tick,3); }
-    
-    foot_step_support_frame_(current_step_num_,0) -= MPC_dcm_delf_r_(0);         foot_step_support_frame_(current_step_num_,1) -= MPC_dcm_delf_r_(1);
-    if(current_step_num_ + 2 < total_step_num_ - 0)
-    {
-        foot_step_support_frame_(current_step_num_ + 1,0) -= MPC_dcm_delf_r_(0); foot_step_support_frame_(current_step_num_ + 1,1) -= MPC_dcm_delf_r_(1);
-        foot_step_support_frame_(current_step_num_ + 2,0) -= MPC_dcm_delf_r_(0); foot_step_support_frame_(current_step_num_ + 2,1) -= MPC_dcm_delf_r_(1);
-    }
-    foot_step_support_frame_(max(0,current_step_num_-2),0) += delf_prev_step_(0);foot_step_support_frame_(max(0,current_step_num_-2),1) += delf_prev_step_(1);
-
-    lfoot_prev_mpc_.setZero(planning_com_size_tick,3);
-    rfoot_prev_mpc_.setZero(planning_com_size_tick,3);
-    lfoot_prev_thread_.setZero(planning_com_size_tick,3);
-    rfoot_prev_thread_.setZero(planning_com_size_tick,3);
 }
 
 void AvatarController::comRefGenerator_Z_e_thread()
@@ -15317,33 +15311,13 @@ void AvatarController::comRefGenerator_Z_e_thread()
                          + (1-(bool)current_step_num_qcqp_mpc_)*(t_temp_ + 1)                                             // time for init
                          + (current_step_num_qcqp_mpc_>=total_step_num_ - planning_step_num_)*4*hz_;                      // time for last
 
-    foot_terrain_int_.resize(total_step_num_,2); foot_terrain_int_.setZero();
+    foot_terrain_int_mpc_.resize(total_step_num_,2); foot_terrain_int_mpc_.setZero();
 
-    // stair setting
-    /*
-    if(walking_tick_mj >= 2.1*hz_)
-    { if(foot_step_support_frame_(current_step_num_,0) > 0) { height_diff = 0.2; height_diff = 0.2; }};
-    if(walking_tick_mj >= 2.1*hz_)
-    { foot_terrain_int_(4,0) = -1; foot_terrain_int_(5,0) = -1; foot_terrain_int_(8,0) = 1; foot_terrain_int_(9,0) = 1;}
-    
-    if(walking_tick_mj >= 9.1*hz_)
-    { if(foot_step_support_frame_(current_step_num_,0) > 0) { height_diff = 0.2; foot_height_ = 0.5;}};
-    if(walking_tick_mj >= 9.1*hz_)
-    { foot_terrain_int_(8,0) = 1;}
+    //height_diff = -0.15; // - upward, + downward
+    //height_diff = +0.15; // - upward, + downward
+    foot_terrain_int_mpc_(3,0) = -1;
 
-    if(walking_tick_mj >= 10.1*hz_)
-    { if(foot_step_support_frame_(current_step_num_,0) > 0) { height_diff = 0.2; foot_height_ = 0.5;}};
-    if(walking_tick_mj >= 10.1*hz_)
-    { foot_terrain_int_(9,0) = 1; foot_terrain_int_(10,0) = 1; foot_terrain_int_(11,0) = 1;}
-    
-    if(walking_tick_mj >= 13.1*hz_)
-    { if(foot_step_support_frame_(current_step_num_,0) > 0) { height_diff = 0.2; foot_height_ = 0.3;}};
-
-    if(walking_tick_mj >= 14.1*hz_)
-    { if(foot_step_support_frame_(current_step_num_,0) > 0) { height_diff = 0.2; foot_height_ = 0.1;}};
-    */
-
-    footTerrainInt_thread(foot_terrain_int_);
+    footTerrainInt_thread(foot_terrain_int_mpc_);
     comGenerator_thread(planning_com_size_tick, planning_step_num_);
     ref_com_z_mpc_.resize(planning_com_size_tick,1);
     ref_com_z_thread_.resize(planning_com_size_tick,1);
@@ -15351,21 +15325,21 @@ void AvatarController::comRefGenerator_Z_e_thread()
     ref_com_e_thread_.resize(planning_com_size_tick,3);
 
     //foot prev
-    foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_,0) += MPC_dcm_delf_fix_(0);         foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_,1) += MPC_dcm_delf_fix_(1);
+    foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_,0) += MPC_dcm_delf_fix_(0);           foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_,1) += MPC_dcm_delf_fix_(1);
     if(current_step_num_qcqp_mpc_ + 2 < total_step_num_ - 0)
     {
-        foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_ + 1,0) += MPC_dcm_delf_fix_(0); foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_ + 1,1) += MPC_dcm_delf_fix_(1);
-        foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_ + 2,0) += MPC_dcm_delf_fix_(0); foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_ + 2,1) += MPC_dcm_delf_fix_(1);
+        foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_ + 1,0) += MPC_dcm_delf_fix_(0);   foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_ + 1,1) += MPC_dcm_delf_fix_(1);
+        foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_ + 2,0) += MPC_dcm_delf_fix_(0);   foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_ + 2,1) += MPC_dcm_delf_fix_(1);
     }
     foot_step_support_frame_mpc_(max(0,current_step_num_qcqp_mpc_-2),0) -= MPC_dcm_delf_fix_p_(0);foot_step_support_frame_mpc_(max(0,current_step_num_qcqp_mpc_-2),1) -= MPC_dcm_delf_fix_p_(1);
 
     footPrevGenerator_thread(planning_com_size_tick, planning_step_num_);
 
-    foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_,0) -= MPC_dcm_delf_fix_(0);         foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_,1) -= MPC_dcm_delf_fix_(1);
+    foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_,0) -= MPC_dcm_delf_fix_(0);           foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_,1) -= MPC_dcm_delf_fix_(1);
     if(current_step_num_qcqp_mpc_ + 2 < total_step_num_ - 0)
     {
-        foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_ + 1,0) -= MPC_dcm_delf_fix_(0); foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_ + 1,1) -= MPC_dcm_delf_fix_(1);
-        foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_ + 2,0) -= MPC_dcm_delf_fix_(0); foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_ + 2,1) -= MPC_dcm_delf_fix_(1);
+        foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_ + 1,0) -= MPC_dcm_delf_fix_(0);   foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_ + 1,1) -= MPC_dcm_delf_fix_(1);
+        foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_ + 2,0) -= MPC_dcm_delf_fix_(0);   foot_step_support_frame_mpc_(current_step_num_qcqp_mpc_ + 2,1) -= MPC_dcm_delf_fix_(1);
     }
     foot_step_support_frame_mpc_(max(0,current_step_num_qcqp_mpc_-2),0) += MPC_dcm_delf_fix_p_(0);foot_step_support_frame_mpc_(max(0,current_step_num_qcqp_mpc_-2),1) += MPC_dcm_delf_fix_p_(1);
 
@@ -15523,23 +15497,54 @@ void AvatarController::comGenerator_thread(const unsigned int norm_size, const u
 {
     ref_com_e_.resize(norm_size,3);
     Eigen::VectorXd temp_cx, temp_cy, temp_cz;
-    double com_x_offset_ = 0.0 + 0.02*(bool)step_length_x_;
 
-    //double h_diff = - param_Czref_calc_;// - 0.5*MPC_dcm_delf_fix_(0);// - sqrt(pow(0.5*MPC_dcm_delf_fix_(0),2) + pow(0.5*MPC_dcm_delf_fix_(1),2));
-    //double h_diff = - 0.022;
-    //double h_diff = - 0.015;
-    double h_diff = - (zc_mj_ - 0.712);
+    unsigned int index = 0;
+    double t_total_com_mpc = t_total_;
+    if(current_step_num_qcqp_mpc_ == 0)
+    {
+        ref_com_e_.block(0, 2, t_temp_, 1).setConstant(zc_mj_);
+        index = index + t_temp_;
+    }
 
-    if(walking_tick_e_qcqp_mpc_ <= 0.25*t_temp_)
-    { h_diff = - 0.0*(zc_mj_ - 0.712); }
-    else if (walking_tick_e_qcqp_mpc_ <= 0.75*t_temp_)
-    { h_diff = - 1.0*(zc_mj_ - 0.712); }
+    if(current_step_num_qcqp_mpc_ >= total_step_num_mpc_ - planning_step_num)
+    {
+        for(unsigned int i = current_step_num_qcqp_mpc_; i < total_step_num_mpc_; i++)
+        {
+            onestepComz_thread(i, temp_cz);
+            ref_com_e_.block(index, 2, t_total_com_mpc, 1) = temp_cz.block(0, 0, t_total_com_mpc, 1);
+            index = index + t_total_com_mpc;
+        }
+        ref_com_e_.block(index, 2, 4.0*hz_, 1).setConstant(ref_com_e_(index - 1, 2));
 
-    h_diff = 0.0;
+        index = index + 4.0*hz_;
+    }
+    else
+    {
+        for(unsigned int i = current_step_num_qcqp_mpc_; i < current_step_num_qcqp_mpc_ + planning_step_num; i++)
+        {
+            onestepComz_thread(i, temp_cz);
+            ref_com_e_.block(index, 2, t_total_com_mpc, 1) = temp_cz.block(0, 0, t_total_com_mpc, 1);
 
-    //ref_com_e_.block(0,0, norm_size,2) = ref_zmp_mj_.block(0,0, norm_size,2);
+            index = index + t_total_com_mpc;
+        }
+    }
+
     ref_com_e_.block(0,0, norm_size,2) = ref_zmp_e_mpc_.block(0,0, norm_size,2);
-    ref_com_e_.block(0,2, norm_size,1).setConstant(zc_mj_ + h_diff);
+    //ref_com_e_.block(0,2, norm_size,1).setConstant(zc_mj_ + h_diff);
+}
+
+void AvatarController::onestepComz_thread(unsigned int current_step_number, Eigen::VectorXd& temp_cz)
+{
+    temp_cz.resize(t_total_);
+    temp_cz.setZero();
+    double h_diff = 0.0;
+
+    h_diff = foot_step_support_frame_mpc_(current_step_number, 2)*(bool)(foot_terrain_int_mpc_(current_step_number,0)-1); //for stair walking
+    //h_diff = - foot_step_support_frame_mpc_(current_step_number, 2)*(bool)(foot_terrain_int_mpc_(current_step_number,0)-1); //for stair walking
+    //if(current_step_number == 6) { h_diff = -0.1; }
+
+    h_diff = DyrosMath::minmax_cut(h_diff, -0.2, 0.2);
+    temp_cz.block(0,0, t_total_, 1).setConstant(zc_mj_ + h_diff);
 }
 
 void AvatarController::onestepComz(unsigned int current_step_number, Eigen::VectorXd& temp_cz)
@@ -15742,15 +15747,19 @@ void AvatarController::onestepFootPrev_thread(unsigned int current_step_number, 
         }
         else
         {
-            temp_lfx(i) = DyrosMath::cubic(i, t_rest_init_ + t_double1_, t_total_ - t_rest_last_ - t_double2_, (1 - foot_step_(current_step_number,6))*foot_step_support_frame_mpc_(current_step_number - 2, 0), (1 - foot_step_(current_step_number,6))*foot_step_support_frame_mpc_(current_step_number, 0), 0.0, 0.0);
-            temp_lfy(i) = DyrosMath::cubic(i, t_rest_init_ + t_double1_, t_total_ - t_rest_last_ - t_double2_, (1 - foot_step_(current_step_number,6))*foot_step_support_frame_mpc_(current_step_number - 2, 1), (1 - foot_step_(current_step_number,6))*foot_step_support_frame_mpc_(current_step_number, 1), 0.0, 0.0);
+            temp_lfx(i) = DyrosMath::cubic(i, t_rest_init_ + t_double1_, 1.0*(t_total_ - t_rest_last_ - t_double2_), (1 - foot_step_(current_step_number,6))*foot_step_support_frame_mpc_(current_step_number - 2, 0), (1 - foot_step_(current_step_number,6))*foot_step_support_frame_mpc_(current_step_number, 0), 0.0, 0.0);
+            temp_lfy(i) = DyrosMath::cubic(i, t_rest_init_ + t_double1_, 1.0*(t_total_ - t_rest_last_ - t_double2_), (1 - foot_step_(current_step_number,6))*foot_step_support_frame_mpc_(current_step_number - 2, 1), (1 - foot_step_(current_step_number,6))*foot_step_support_frame_mpc_(current_step_number, 1), 0.0, 0.0);
             double z_calc1, z_calc2;
             z_calc1 = DyrosMath::cubic(i, t_rest_init_ + t_double1_, t_rest_init_ + t_double1_ + (t_total_ - t_rest_last_ - t_double2_ - t_rest_init_ - t_double1_)/2, 0.0, foot_height_, 0.0, 0.0);
-            z_calc2 = DyrosMath::cubic(i, t_rest_init_ + t_double1_ + (t_total_ - t_rest_last_ - t_double2_ - t_rest_init_ - t_double1_)/2, t_total_ - t_rest_last_ - t_double2_, foot_height_, foot_step_support_frame_mpc_(current_step_number,2) ,0.0, 0.0);
+            z_calc2 = DyrosMath::cubic(i, t_rest_init_ + t_double1_ + 1.0*(t_total_ - t_rest_last_ - t_double2_ - t_rest_init_ - t_double1_)/2, t_total_ - t_rest_last_ - t_double2_, foot_height_, foot_step_support_frame_mpc_(current_step_number,2) ,0.0, 0.0);
+
+            //upstair
+            //z_calc1 = DyrosMath::cubic(i, t_rest_init_ + t_double1_, t_rest_init_ + t_double1_ + (t_total_ - t_rest_last_ - t_double2_ - t_rest_init_ - t_double1_)/2, 0.0, foot_height_-foot_step_support_frame_mpc_(current_step_number,2), 0.0, 0.0);
+            //z_calc2 = DyrosMath::cubic(i, t_rest_init_ + t_double1_ + 1.0*(t_total_ - t_rest_last_ - t_double2_ - t_rest_init_ - t_double1_)/2, t_total_ - t_rest_last_ - t_double2_, foot_height_-foot_step_support_frame_mpc_(current_step_number,2), -foot_step_support_frame_mpc_(current_step_number,2) ,0.0, 0.0);
             temp_lfz(i) = (1 - foot_step_(current_step_number,6))*min(z_calc1, z_calc2);
 
-            temp_rfx(i) = DyrosMath::cubic(i, t_rest_init_ + t_double1_, t_total_ - t_rest_last_ - t_double2_, foot_step_(current_step_number,6)*foot_step_support_frame_mpc_(current_step_number - 2, 0), foot_step_(current_step_number,6)*foot_step_support_frame_mpc_(current_step_number, 0), 0.0, 0.0);
-            temp_rfy(i) = DyrosMath::cubic(i, t_rest_init_ + t_double1_, t_total_ - t_rest_last_ - t_double2_, foot_step_(current_step_number,6)*foot_step_support_frame_mpc_(current_step_number - 2, 1), foot_step_(current_step_number,6)*foot_step_support_frame_mpc_(current_step_number, 1), 0.0, 0.0);
+            temp_rfx(i) = DyrosMath::cubic(i, t_rest_init_ + t_double1_, 1.0*(t_total_ - t_rest_last_ - t_double2_), foot_step_(current_step_number,6)*foot_step_support_frame_mpc_(current_step_number - 2, 0), foot_step_(current_step_number,6)*foot_step_support_frame_mpc_(current_step_number, 0), 0.0, 0.0);
+            temp_rfy(i) = DyrosMath::cubic(i, t_rest_init_ + t_double1_, 1.0*(t_total_ - t_rest_last_ - t_double2_), foot_step_(current_step_number,6)*foot_step_support_frame_mpc_(current_step_number - 2, 1), foot_step_(current_step_number,6)*foot_step_support_frame_mpc_(current_step_number, 1), 0.0, 0.0);
             temp_rfz(i) = foot_step_(current_step_number,6)*min(z_calc1, z_calc2);
         }
     }
@@ -16387,8 +16396,9 @@ void AvatarController::onestepFoot(unsigned int current_step_number, Eigen::Vect
 
 void AvatarController::getComFootTrajectory_mpc_qcqp()
 {   
-    if(walking_tick_mj == 0)
-    { comRefGenerator_Z_e(); }
+    //if(walking_tick_mj == 0)
+    //{ comRefGenerator_Z_e(); }
+    comRefGenerator_Z_e();
 
     if(walking_tick_mj == 0)
     {
@@ -16484,6 +16494,7 @@ void AvatarController::getComFootTrajectory_mpc_qcqp()
         walking_tick_e_qcqp_thread_ = walking_tick_mj;
         com_start_tick_e_qcqp_thread_ = com_start_tick_e_qcqp_;
         current_step_num_qcqp_thread_ = current_step_num_;
+        total_step_num_thread_ = total_step_num_;
         //ref_com_e_thread_ = ref_com_e_;
         ref_zmp_e_thread_ = ref_zmp_mj_;
         //ref_lfoot_e_thread_ = ref_lfoot_e_;
@@ -17136,8 +17147,10 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
     Qcpy = 5e-2;        Qcvy = 5e-3;        Qcay = 0e-0;        Rcy = 1e-6;
 
   //Qcpz = param_Qcpz_; Qcvz = param_Qcvz_; Qcaz = param_Qcaz_; Rcz = 1e-6;
-  //Qcpz = 5e-1;        Qcvz = 1e-1;        Qcaz = 1e-4;        Rcz = 1e-6;
+    //Qcpz = 7e-1;        Qcvz = 1e-1;        Qcaz = 1e-4;        Rcz = 1e-6;
     Qcpz = 1e-0;        Qcvz = 1e-1;        Qcaz = 1e-4;        Rcz = 1e-6;
+    if(target_x_ > 0) { Qcpz = 7e-1; }
+    //Qcpz = 1e-1;        Qcvz = 1e-2;        Qcaz = 1e-4;        Rcz = 1e-6;
 
     int mpc_tick = walking_tick_e_qcqp_mpc_ - com_start_tick_e_qcqp_mpc_;
     const int N_qcqp = preview_window_qcqp_*mpc_qcqp_freq;
@@ -17318,9 +17331,12 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
 
     for(int i = 0; i < N_qcqp; i++)
     {
-        C_x_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,0);
+        //C_x_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,0) + 0.02*(bool)target_x_*(bool)current_step_num_qcqp_mpc_; // down stair
+        //C_x_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,0) + 0.03*(bool)target_x_; // up stair
+        C_x_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,0) + 0.00*(bool)target_x_; // forward walking
         C_y_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,1);
         //if(walking_tick_e_qcqp_mpc_ < t_temp_) { C_y_ref(i) = -0.1025; }
+        //C_z_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,2) - 0.02*(bool)target_x_*(bool)current_step_num_qcqp_mpc_;
         C_z_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,2);
 
         lF_x_ref(i) = lfoot_prev_mpc_(mpc_tick + MPC_synchro_hz_*i,0);
@@ -17356,7 +17372,6 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
         Z_y_max(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) + 0.15;
         Z_y_min(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) - 0.15;
     }
-
 
     if(walking_tick_e_qcqp_mpc_ < 0.25*t_temp_)
     { Qcpy = 1e-0; Qcvy = 1e-1; Qcay = 1e-6; }
@@ -19789,6 +19804,7 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
     //R_df_x  = param_R_df_x_,   R_df_y  = param_R_df_y_; // stepping not 0, previous delf
 
     Q_dcm_x = 1e-0,  Q_dcm_y = 1e-0,  Q_dcm_z = 9e-1;
+    //R_dcm_x = 2e-1,  R_dcm_y = 1e-2,  R_dcm_z = 1e-1;
     R_dcm_x = 2e-1,  R_dcm_y = 1e-2,  R_dcm_z = 1e-1;
     R_f_x   = 1e-2,  R_f_y   = 1e-2;
     R_df_x  = 1e+1,  R_df_y  = 1e+2;
@@ -20162,6 +20178,14 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
                 MPC_dcm_delf_p_ = MPC_dcm_delf_;
                 MPC_dcm_delf_ = dcm_SUf*MPC_qcqp_dcm_foot_u_;
                 
+                //var stride
+                //if(current_step_num_qcqp_mpc_ >= 6) { MPC_dcm_delf_(0) = -0.05; }
+                //if(current_step_num_qcqp_mpc_ >= 9) { MPC_dcm_delf_(0) = -0.00; }
+                //if(current_step_num_qcqp_mpc_ >=12) { MPC_dcm_delf_(0) = +0.05; }
+                //if(current_step_num_qcqp_mpc_ >=15) { MPC_dcm_delf_(0) = +0.10; }
+                //if(current_step_num_qcqp_mpc_ >=18) { MPC_dcm_delf_(0) = +0.15; }
+                //if(current_step_num_qcqp_mpc_ >=21) { MPC_dcm_delf_(0) = +0.20; }
+
                 //if(mpc_tick < t_total_const_ - t_double2_ - t_rest_last_ - 0.1*hz_) { MPC_dcm_delf_fix_ = MPC_dcm_delf_; }
                 if(mpc_tick < t_total_const_ - t_double2_ - t_rest_last_ - 0.2*hz_) { MPC_dcm_delf_fix_ = MPC_dcm_delf_; }
                 if(mpc_tick >= t_total_const_ - 0.049*hz_) { MPC_dcm_delf_fix_p_ = MPC_dcm_delf_fix_; }
@@ -20718,7 +20742,7 @@ void AvatarController::parameterSetting()
     com_height_ = 0.71;
     target_theta_ = 0.0;
     //step_length_x_ = param_step_x_;
-    step_length_x_ = 0.3;
+    step_length_x_ = 0.15;
     step_length_y_ = 0.0;
     is_right_foot_swing_ = 1;
 
@@ -20732,6 +20756,7 @@ void AvatarController::parameterSetting()
     t_total_const_ = 1.0 * hz_;
     //foot_height_ = 0.050 + 0.1*step_length_x_;      // 0.9 sec 0.05
     foot_height_ = 0.070 + 0.1*step_length_x_;      // 0.9 sec 0.05
+    //foot_height_ = 0.050;      // upstair
 
     t_temp_ = 2.0 * hz_;
     t_last_ = t_total_ + t_temp_;
@@ -21154,6 +21179,7 @@ void AvatarController::CP_compen_MJ_FT()
     //F_F_input_dot = 0.0005 * ((l_ft_(2) - r_ft_(2)) - (F_L - F_R)) - 3.0 * F_F_input; // F_F_input이 크면 다리를 원래대로 빨리줄인다. 이정도 게인 적당한듯0.001/0.00001 // SSP, DSP 게인값 바꿔야?
     F_F_input_dot = 0.0001 * ((l_ft_(2) - r_ft_(2)) - (fl - fr)) - 3.0 * F_F_input;
     if(param_sim_mode_) { F_F_input_dot = 0.0005 * ((l_ft_(2) - r_ft_(2)) - (fl - fr)) - 3.0 * F_F_input; }
+    //if(param_sim_mode_) { F_F_input_dot = 0.0003 * ((l_ft_(2) - r_ft_(2)) - (fl - fr)) - 3.0 * F_F_input; }
 
     F_F_input = F_F_input + F_F_input_dot * del_t;
     double F_F_input_cut = 0.02;

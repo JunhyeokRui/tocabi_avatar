@@ -1847,7 +1847,9 @@ public:
     int param_ext_step_num_;
     double econom2_calc;
     double zmp_x_max = 0.13;
+    //double zmp_x_max = 0.05; // downward stair
     double zmp_x_min = 0.07;
+    //double zmp_x_min = 0.05; // upward stair
     double zmp_y_max = 0.07;
     double zmp_y_min = 0.07;
     double height_diff = 0.0;
@@ -1862,6 +1864,7 @@ public:
     Eigen::MatrixXd lfoot_prev_thread_;
     Eigen::MatrixXd rfoot_prev_thread_;
     Eigen::MatrixXd foot_terrain_int_;
+    Eigen::MatrixXd foot_terrain_int_mpc_;
     
     double param_R_df_y_calc_;
     double param_R_df_y_error_;
