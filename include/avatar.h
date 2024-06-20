@@ -1978,7 +1978,8 @@ public:
     double MPC_lambda_r_p_mpc_;
 
     double MPC_wf_;
-    int qcqp_int;
+    int qcqp_int_;
+    int eng_int_;
 
     void onestepZmp_e(unsigned int current_step_number, Eigen::VectorXd& temp_px_max, Eigen::VectorXd& temp_py_max, Eigen::VectorXd& temp_px_min, Eigen::VectorXd& temp_py_min);
     //3D DCM
