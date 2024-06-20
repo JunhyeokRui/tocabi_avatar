@@ -1823,6 +1823,7 @@ public:
 
     bool param_sim_mode_;
     int param_qcqp_int_;
+    int param_eng_int_;
     double param_Qcpz_;
     double param_Qcvz_;
     double param_Qcaz_;
@@ -1835,7 +1836,7 @@ public:
     double param_R_dcm_x_;
     double param_R_f_x_;
     double param_R_df_x_;
-    double param_f_x_max_;
+    double param_f_x_min_;
     double param_Q_dcm_y_;
     double param_R_dcm_y_;
     double param_R_f_y_;
@@ -1846,12 +1847,13 @@ public:
     double param_ext_force_time_;
     int param_ext_step_num_;
     double econom2_calc;
-    double zmp_x_max = 0.13;
-    //double zmp_x_max = 0.05; // downward stair
-    double zmp_x_min = 0.07;
-    //double zmp_x_min = 0.05; // upward stair
-    double zmp_y_max = 0.07;
-    double zmp_y_min = 0.07;
+    double zmp_x_max = 0.165;
+    //double zmp_x_min = 0.07;
+    double zmp_x_min = 0.115;
+    //double zmp_y_max = 0.07;
+    double zmp_y_max = 0.065;
+    //double zmp_y_min = 0.07;
+    double zmp_y_min = 0.065;
     double height_diff = 0.0;
     double angle_diff = 0.0;
     Eigen::MatrixXd ref_com_z_e_;
@@ -1864,7 +1866,14 @@ public:
     Eigen::MatrixXd lfoot_prev_thread_;
     Eigen::MatrixXd rfoot_prev_thread_;
     Eigen::MatrixXd foot_terrain_int_;
-    Eigen::MatrixXd foot_terrain_int_mpc_;
+
+    void englesberger_dcm_controller();
+    
+    Eigen::VectorXd vrp_eng_step_init_;
+    Eigen::VectorXd com_eng_step_init_;
+    Eigen::VectorXd dcm_eng_step_init_;
+    Eigen::VectorXd ecmp_eng_step_init_;
+    Eigen::VectorXd eng_next_step_;
     
     double param_R_df_y_calc_;
     double param_R_df_y_error_;
@@ -2384,6 +2393,7 @@ public:
     Eigen::VectorXd MPC_dcm_delf_fix_p_;
     Eigen::VectorXd MPC_dcm_delf_p_;
     Eigen::VectorXd delf_prev_step_;
+    Eigen::VectorXd delf_calc_;
     Eigen::VectorXd MPC_dcm_delf_r_;
     Eigen::VectorXd MPC_dcm_delf_r_p_;
     
