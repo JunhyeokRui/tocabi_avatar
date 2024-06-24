@@ -792,9 +792,9 @@ void AvatarController::computeSlow()
                 torque_upper_.segment(12, MODEL_DOF - 12) = rd_.torque_desired.segment(12, MODEL_DOF - 12);
 
                 //qcqp_int_ = param_qcqp_int_; // 0 MJ_ICRA 1 DCM 2 Ding
-                //eng_int_ = param_eng_int_;
+                eng_int_ = param_eng_int_;
                 qcqp_int_ = 1;
-                eng_int_ = 1;
+                //eng_int_ = 0;
                 if(qcqp_int_ == 0) { cout << "MJ ICRA" << endl; }
                 else if(qcqp_int_ == 1) { cout << "E DCM MPC" << endl; }
                 else if(qcqp_int_ == 2) { cout << "Ding" << endl; }
@@ -13359,8 +13359,11 @@ void AvatarController::addZmpOffset()
     {
         //lfoot_zmp_offset_ = -0.04 + (1 - (bool)current_step_num_)*0.01 + 0.06*(bool)(target_x_);
         //rfoot_zmp_offset_ =  0.04 - (1 - (bool)current_step_num_)*0.01 - 0.06*(bool)(target_x_);
-        lfoot_zmp_offset_ = -0.00 + (1 - (bool)current_step_num_)*0.01;
-        rfoot_zmp_offset_ =  0.00 - (1 - (bool)current_step_num_)*0.01;
+        //lfoot_zmp_offset_ = -0.00 + (1 - (bool)current_step_num_)*0.01;
+        //rfoot_zmp_offset_ =  0.00 - (1 - (bool)current_step_num_)*0.01;
+
+        lfoot_zmp_offset_ = -0.01 - (1 - (bool)current_step_num_)*0.000;
+        rfoot_zmp_offset_ =  0.01 + (1 - (bool)current_step_num_)*0.000;
 
         if(step_length_x_ >= 0.30)
         {
@@ -14658,8 +14661,9 @@ void AvatarController::getPelvTrajectory()
     double z_rot = foot_step_support_frame_(current_step_num_, 5);
 
     //pelv_trajectory_support_.translation()(0) = pelv_support_current_.translation()(0) + 0.7 * (com_desired_(0) - 0*0.15 * damping_x - com_support_current_(0)); 
-    pelv_trajectory_support_.translation()(0) = pelv_support_current_.translation()(0) + 0.9 * (com_desired_(0) - 0*0.15 * damping_x - com_support_current_(0));     
+    //pelv_trajectory_support_.translation()(0) = pelv_support_current_.translation()(0) + 0.9 * (com_desired_(0) - 0*0.15 * damping_x - com_support_current_(0));
     //pelv_trajectory_support_.translation()(0) = pelv_support_current_.translation()(0) + 1.0 * (com_desired_(0) - 0*0.15 * damping_x - com_support_current_(0));
+    pelv_trajectory_support_.translation()(0) = pelv_support_current_.translation()(0) + 0.7 * (com_desired_(0) - 0*0.15 * damping_x - com_support_current_(0));
 
     if(qcqp_int_ == 0)
     { 
@@ -17317,8 +17321,8 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
     Qcpy = 5e-2;        Qcvy = 5e-3;        Qcay = 0e-0;        Rcy = 1e-6;
 
     //Qcpz = param_Qcpz_; Qcvz = param_Qcvz_; Qcaz = param_Qcaz_; Rcz = 1e-6;
-    Qcpz = 5e-1;        Qcvz = 1e-1;        Qcaz = 1e-4;        Rcz = 1e-6;
-    //Qcpz = 1e-0;        Qcvz = 1e-1;        Qcaz = 1e-4;        Rcz = 1e-6;
+    //Qcpz = 5e-1;        Qcvz = 1e-1;        Qcaz = 1e-4;        Rcz = 1e-6;
+    Qcpz = 1e-0;        Qcvz = 1e-1;        Qcaz = 1e-4;        Rcz = 1e-6;
 
     int mpc_tick = walking_tick_e_qcqp_mpc_ - com_start_tick_e_qcqp_mpc_;
     const int N_qcqp = preview_window_qcqp_*mpc_qcqp_freq;
@@ -19981,7 +19985,8 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
 
     Q_dcm_x = 1e-0, R_dcm_x = 1e-2, R_f_x = 1e-2, R_df_x = 1e+1;
     Q_dcm_y = 1e-0, R_dcm_y = 1e-2, R_f_y = 1e-2, R_df_y = 1e+3;
-    Q_dcm_z = 1e+1, R_dcm_z = 1e-1;
+    //Q_dcm_z = 1e+1, R_dcm_z = 1e-1;
+    Q_dcm_z = 9e-1, R_dcm_z = 1e-1;
 
     //if(current_step_num_qcqp_mpc_ == 0)
     if(walking_tick_e_qcqp_mpc_ < t_temp_)
@@ -19989,8 +19994,8 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
     //{ Q_dcm_y = 1e-0; R_dcm_y = 7e-1; }
 
     double delf_x_max = 0.25;
-    //double delf_x_min = min(param_f_x_min_, 0.4 - abs(MPC_dcm_delf_fix_p_(0)));
-    double delf_x_min = min(0.30, 0.4 - abs(MPC_dcm_delf_fix_p_(0)));
+    double delf_x_min = min(param_f_x_min_, 0.4 - abs(MPC_dcm_delf_fix_p_(0)));
+    //double delf_x_min = min(0.30, 0.4 - abs(MPC_dcm_delf_fix_p_(0)));
     double delf_dx_max = 0.5;
     double delf_dx_min = 0.5;
     
@@ -21305,9 +21310,9 @@ void AvatarController::CP_compen_MJ_FT()
         ZMP_Y_DES_CALC = MPC_dcm_zmp_r_(1);
 
         double b_mpc = sqrt(zc_mj_/GRAVITY);
-        lambda_desired = (com_support_current_(2) - MPC_dcm_vrp_r_(2) + GRAVITY*b_mpc*b_mpc)/(com_support_current_(2)*b_mpc*b_mpc);
-        ZMP_X_DES_CALC = (MPC_dcm_vrp_r_(0) - (1 - lambda_desired*b_mpc*b_mpc)*com_support_current_(0))/(lambda_desired*b_mpc*b_mpc);
-        ZMP_Y_DES_CALC = (MPC_dcm_vrp_r_(1) - (1 - lambda_desired*b_mpc*b_mpc)*com_support_current_(1))/(lambda_desired*b_mpc*b_mpc);
+        //lambda_desired = (com_support_current_(2) - MPC_dcm_vrp_r_(2) + GRAVITY*b_mpc*b_mpc)/(com_support_current_(2)*b_mpc*b_mpc);
+        //ZMP_X_DES_CALC = (MPC_dcm_vrp_r_(0) - (1 - lambda_desired*b_mpc*b_mpc)*com_support_current_(0))/(lambda_desired*b_mpc*b_mpc);
+        //ZMP_Y_DES_CALC = (MPC_dcm_vrp_r_(1) - (1 - lambda_desired*b_mpc*b_mpc)*com_support_current_(1))/(lambda_desired*b_mpc*b_mpc);
 
         bool englesberger_dcm_ankle = 1;
         englesberger_dcm_ankle = 1;
@@ -21475,7 +21480,8 @@ void AvatarController::CP_compen_MJ_FT()
     //F_F_input_dot = 0.0005 * ((l_ft_(2) - r_ft_(2)) - (F_L - F_R)) - 3.0 * F_F_input; // F_F_input이 크면 다리를 원래대로 빨리줄인다. 이정도 게인 적당한듯0.001/0.00001 // SSP, DSP 게인값 바꿔야?
     F_F_input_dot = 0.0001 * ((l_ft_(2) - r_ft_(2)) - (fl - fr)) - 3.0 * F_F_input;
     //if(param_sim_mode_) { F_F_input_dot = 0.0005 * ((l_ft_(2) - r_ft_(2)) - (fl - fr)) - 3.0 * F_F_input; }
-    if(param_sim_mode_) { F_F_input_dot = 0.0010 * ((l_ft_(2) - r_ft_(2)) - (fl - fr)) - 1.5 * F_F_input; }
+    //if(param_sim_mode_) { F_F_input_dot = 0.0010 * ((l_ft_(2) - r_ft_(2)) - (fl - fr)) - 1.5 * F_F_input; }
+    if(param_sim_mode_) { F_F_input_dot = 0.0010 * ((l_ft_(2) - r_ft_(2)) - (fl - fr)) - 3.0 * F_F_input; }
 
     F_F_input = F_F_input + F_F_input_dot * del_t;
     double F_F_input_cut = 0.02;
