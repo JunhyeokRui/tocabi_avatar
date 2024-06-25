@@ -1773,7 +1773,6 @@ public:
     Eigen::VectorQd contact_torque_MJ;
     Eigen::VectorQd Initial_ref_q_;
     Eigen::VectorQd Initial_ref_upper_q_;
-    Eigen::VectorQd Initial_ref_lower_q_;
     Eigen::VectorQd Initial_current_q_;
     Eigen::VectorQd Initial_ref_q_walk_;
     bool walking_enable_ ;
@@ -1816,6 +1815,7 @@ public:
                                                            Eigen::VectorXd& temp_rfx, Eigen::VectorXd& temp_rfy, Eigen::VectorXd& temp_rfz);
     void onestepFootPrev_thread(unsigned int current_step_number, Eigen::VectorXd& temp_lfx, Eigen::VectorXd& temp_lfy, Eigen::VectorXd& temp_lfz,
                                                                   Eigen::VectorXd& temp_rfx, Eigen::VectorXd& temp_rfy, Eigen::VectorXd& temp_rfz);
+
     //////////////////////////////// Econom2 variables
     Eigen::Vector2d zmp_desired_;
     Eigen::Vector2d zmp_max_;
@@ -1836,7 +1836,7 @@ public:
     double param_R_dcm_x_;
     double param_R_f_x_;
     double param_R_df_x_;
-    double param_f_x_min_;
+    double param_f_x_max_;
     double param_Q_dcm_y_;
     double param_R_dcm_y_;
     double param_R_f_y_;
@@ -1845,15 +1845,15 @@ public:
     double param_Q_dcm_z_;
     double param_R_dcm_z_;
     double param_ext_force_time_;
+    double param_pelv_x_;
     int param_ext_step_num_;
     double econom2_calc;
-    double zmp_x_max = 0.165;
+    double zmp_x_max = 0.13;
     //double zmp_x_min = 0.07;
     double zmp_x_min = 0.115;
-    //double zmp_y_max = 0.07;
-    double zmp_y_max = 0.065;
-    //double zmp_y_min = 0.07;
-    double zmp_y_min = 0.065;
+    //double zmp_x_min = 0.09;
+    double zmp_y_max = 0.07;
+    double zmp_y_min = 0.07;
     double height_diff = 0.0;
     double angle_diff = 0.0;
     Eigen::MatrixXd ref_com_z_e_;
@@ -1866,7 +1866,7 @@ public:
     Eigen::MatrixXd lfoot_prev_thread_;
     Eigen::MatrixXd rfoot_prev_thread_;
     Eigen::MatrixXd foot_terrain_int_;
-
+    
     void englesberger_dcm_controller();
     
     Eigen::VectorXd vrp_eng_step_init_;
@@ -2394,7 +2394,6 @@ public:
     Eigen::VectorXd MPC_dcm_delf_fix_p_;
     Eigen::VectorXd MPC_dcm_delf_p_;
     Eigen::VectorXd delf_prev_step_;
-    Eigen::VectorXd delf_calc_;
     Eigen::VectorXd MPC_dcm_delf_r_;
     Eigen::VectorXd MPC_dcm_delf_r_p_;
     
