@@ -12,7 +12,7 @@
 #include <std_msgs/String.h>
 #include <sstream>
 #include <fstream>
-//#include "tocabi_msgs/FTsensor.h" // real robot experiment
+#include "tocabi_msgs/FTsensor.h" // real robot experiment
 
 //lexls
 // #include <lexls/lexlsi.h>
@@ -299,7 +299,7 @@ public:
 
     void AzureKinectCallback(const visualization_msgs::MarkerArray &msg);
 
-    //void OptoforceFTCallback(const tocabi_msgs::FTsensor &msg); // real robot experiment
+    void OptoforceFTCallback(const tocabi_msgs::FTsensor &msg); // real robot experiment
     ///////////////////////////////
 
     ////////////////dg custom controller variables/////////////
@@ -1848,8 +1848,8 @@ public:
     int param_ext_step_num_;
     double econom2_calc;
     double zmp_x_max = 0.13;
-    //double zmp_x_min = 0.07;
-    double zmp_x_min = 0.115;
+    double zmp_x_min = 0.07;
+    //double zmp_x_min = 0.115;
     //double zmp_x_min = 0.09;
     double zmp_y_max = 0.07;
     double zmp_y_min = 0.07;
