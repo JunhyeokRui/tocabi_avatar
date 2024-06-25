@@ -61,7 +61,7 @@ AvatarController::AvatarController(RobotData &rd) : rd_(rd)
 
     pedal_command = nh_avatar_.subscribe("/tocabi/pedalcommand", 100, &AvatarController::PedalCommandCallback, this); //MJ
 
-    //opto_ftsensor_sub = nh_avatar_.subscribe("/atiforce/ftsensor", 100, &AvatarController::OptoforceFTCallback, this); // real robot experiment
+    opto_ftsensor_sub = nh_avatar_.subscribe("/optoforce/ftsensor", 100, &AvatarController::OptoforceFTCallback, this); // real robot experiment
 
     bool urdfmode = false;
     std::string urdf_path, desc_package_path;
@@ -71,6 +71,7 @@ AvatarController::AvatarController(RobotData &rd) : rd_(rd)
     ros::param::get("/econom2_exttheta",ext_theta_);
     ros::param::get("/econom2_ext_time",param_ext_force_time_);
 
+    /*
     ros::param::get("/econom2_Q_dcm_x",param_Q_dcm_x_);
     ros::param::get("/econom2_R_dcm_x",param_R_dcm_x_);
     ros::param::get("/econom2_R_f_x",param_R_f_x_);
@@ -88,7 +89,6 @@ AvatarController::AvatarController(RobotData &rd) : rd_(rd)
 
     ros::param::get("/econom2_pelv_x",param_pelv_x_);
 
-    /*
     ros::param::get("/econom2_qcqp_int", param_qcqp_int_);
     ros::param::get("/econom2_Qcpz", param_Qcpz_);
     ros::param::get("/econom2_Qcvz", param_Qcvz_);
@@ -11768,15 +11768,15 @@ void AvatarController::TrackerStatusCallback(const std_msgs::Bool &msg)
 }
  
 // real robot experiment
-// void AvatarController::OptoforceFTCallback(const tocabi_msgs::FTsensor &msg)
-// {
-//     opto_ft_raw_(0) = msg.Fx;
-//     opto_ft_raw_(1) = msg.Fy;
-//     opto_ft_raw_(2) = msg.Fz;
-//     opto_ft_raw_(3) = msg.Tx;
-//     opto_ft_raw_(4) = msg.Ty;
-//     opto_ft_raw_(5) = msg.Tz;
-// }
+void AvatarController::OptoforceFTCallback(const tocabi_msgs::FTsensor &msg)
+{
+    opto_ft_raw_(0) = msg.Fx;
+    opto_ft_raw_(1) = msg.Fy;
+    opto_ft_raw_(2) = msg.Fz;
+    opto_ft_raw_(3) = msg.Tx;
+    opto_ft_raw_(4) = msg.Ty;
+    opto_ft_raw_(5) = msg.Tz;
+}
 
 Eigen::MatrixXd AvatarController::discreteRiccatiEquationPrev(Eigen::MatrixXd a, Eigen::MatrixXd b, Eigen::MatrixXd r, Eigen::MatrixXd q)
 {
@@ -14592,8 +14592,8 @@ void AvatarController::getPelvTrajectory()
 
     double z_rot = foot_step_support_frame_(current_step_num_, 5);
 
-    //pelv_trajectory_support_.translation()(0) = pelv_support_current_.translation()(0) + 0.6 * (com_desired_(0) - 0*0.15 * damping_x - com_support_current_(0)); 
-    pelv_trajectory_support_.translation()(0) = pelv_support_current_.translation()(0) + param_pelv_x_ * (com_desired_(0) - 0*0.15 * damping_x - com_support_current_(0)); 
+    pelv_trajectory_support_.translation()(0) = pelv_support_current_.translation()(0) + 0.6 * (com_desired_(0) - 0*0.15 * damping_x - com_support_current_(0)); 
+    //pelv_trajectory_support_.translation()(0) = pelv_support_current_.translation()(0) + param_pelv_x_ * (com_desired_(0) - 0*0.15 * damping_x - com_support_current_(0)); 
 
     if(qcqp_int_ == 0)
     { 
@@ -19849,14 +19849,14 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
     double Q_dcm_x, Q_dcm_y, Q_dcm_z, R_dcm_x, R_dcm_y, R_dcm_z, R_f_x, R_f_y, R_df_x, R_df_y;
 
     Q_dcm_x = 1e-0,  Q_dcm_y = 1e-0,  Q_dcm_z = 9e-1;
-    R_dcm_x = 2e-1,  R_dcm_y = 1e-2,  R_dcm_z = 1e-1;
+    R_dcm_x = 1e-2,  R_dcm_y = 1e-2,  R_dcm_z = 1e-1;
     R_f_x   = 1e-2,  R_f_y   = 1e-2;
-    R_df_x  = 1e+1,  R_df_y  = 1e+2;
+    R_df_x  = 2e+1,  R_df_y  = 1e+3;
 
-    Q_dcm_x = param_Q_dcm_x_,  Q_dcm_y = param_Q_dcm_y_,  Q_dcm_z = param_Q_dcm_z_;
-    R_dcm_x = param_R_dcm_x_,  R_dcm_y = param_R_dcm_y_,  R_dcm_z = param_R_dcm_z_;
-    R_f_x   = param_R_f_x_,    R_f_y   = param_R_f_y_;
-    R_df_x  = param_R_df_x_,   R_df_y  = param_R_df_y_; // stepping not 0, previous delf
+    //Q_dcm_x = param_Q_dcm_x_,  Q_dcm_y = param_Q_dcm_y_,  Q_dcm_z = param_Q_dcm_z_;
+    //R_dcm_x = param_R_dcm_x_,  R_dcm_y = param_R_dcm_y_,  R_dcm_z = param_R_dcm_z_;
+    //R_f_x   = param_R_f_x_,    R_f_y   = param_R_f_y_;
+    //R_df_x  = param_R_df_x_,   R_df_y  = param_R_df_y_; // stepping not 0, previous delf
     
     if(current_step_num_qcqp_mpc_ == 0)
     //{ Q_dcm_y = 5e-1; R_dcm_y = 1e-0; }

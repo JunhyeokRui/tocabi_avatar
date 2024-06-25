@@ -1,7 +1,6 @@
 #include "tocabi_lib/robot_data.h"
 #include "wholebody_functions.h"
 #include <std_msgs/String.h>
-#include "gurobi/gurobi_c++.h"
 
 #include "math_type_define.h"
 #include <std_msgs/Float32MultiArray.h>
