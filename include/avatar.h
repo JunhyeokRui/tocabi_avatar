@@ -1774,6 +1774,7 @@ public:
     Eigen::VectorQd Initial_ref_upper_q_;
     Eigen::VectorQd Initial_current_q_;
     Eigen::VectorQd Initial_ref_q_walk_;
+    Eigen::VectorQd Initial_ref_lower_q_;
     bool walking_enable_ ;
 
     //pedal_
@@ -1817,8 +1818,12 @@ public:
 
     //////////////////////////////// Econom2 variables
     Eigen::Vector2d zmp_desired_;
-    Eigen::Vector2d zmp_max_;
-    Eigen::Vector2d zmp_min_;
+    Eigen::VectorXd zmp_max_x_;
+    Eigen::VectorXd zmp_min_x_;
+    Eigen::VectorXd zmp_max_y_;
+    Eigen::VectorXd zmp_min_y_;
+
+    double com_calc_;
 
     bool param_sim_mode_;
     int param_qcqp_int_;
@@ -1848,9 +1853,9 @@ public:
     int param_ext_step_num_;
     double econom2_calc;
     double zmp_x_max = 0.13;
-    double zmp_x_min = 0.07;
+    //double zmp_x_min = 0.07;
     //double zmp_x_min = 0.115;
-    //double zmp_x_min = 0.09;
+    double zmp_x_min = 0.09;
     double zmp_y_max = 0.07;
     double zmp_y_min = 0.07;
     double height_diff = 0.0;
@@ -1977,7 +1982,7 @@ public:
     double MPC_lambda_r_p_mpc_;
 
     double MPC_wf_;
-    int qcqp_int_;
+    int qcqp_int;
     int eng_int_;
 
     void onestepZmp_e(unsigned int current_step_number, Eigen::VectorXd& temp_px_max, Eigen::VectorXd& temp_py_max, Eigen::VectorXd& temp_px_min, Eigen::VectorXd& temp_py_min);
