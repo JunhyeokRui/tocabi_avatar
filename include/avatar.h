@@ -1549,6 +1549,9 @@ public:
     Eigen::Vector3d dcm_measured_thread_;
     Eigen::Vector3d dcm_measured_mpc_;
 
+    Eigen::Vector3d dcm_measured_p_;
+    Eigen::Vector3d dcm_measured_p_p_;
+
     Eigen::Vector3d com_measured_;
     Eigen::Vector3d com_measured_thread_;
     Eigen::Vector3d com_measured_mpc_;
@@ -1817,9 +1820,12 @@ public:
 
     //////////////////////////////// Econom2 variables
     Eigen::Vector2d zmp_desired_;
-    Eigen::Vector2d zmp_max_;
-    Eigen::Vector2d zmp_min_;
+    Eigen::VectorXd zmp_max_x_;
+    Eigen::VectorXd zmp_max_y_;
+    Eigen::VectorXd zmp_min_x_;
+    Eigen::VectorXd zmp_min_y_;
 
+    double com_calc_;
     bool param_sim_mode_;
     int param_qcqp_int_;
     int param_eng_int_;
@@ -1845,9 +1851,13 @@ public:
     double param_R_dcm_z_;
     double param_ext_force_time_;
     double param_pelv_x_;
+    double param_eng_x_;
+    double param_eng_y_;
     int param_ext_step_num_;
+    double param_leg_length_;
     double econom2_calc;
     double zmp_x_max = 0.13;
+    //double zmp_x_max = 0.16;
     //double zmp_x_min = 0.07;
     double zmp_x_min = 0.115;
     //double zmp_x_min = 0.09;
@@ -1867,12 +1877,24 @@ public:
     Eigen::MatrixXd foot_terrain_int_;
     
     void englesberger_dcm_controller();
+    void englesberger_dcm_step_2021();
     
-    Eigen::VectorXd vrp_eng_step_init_;
-    Eigen::VectorXd com_eng_step_init_;
-    Eigen::VectorXd dcm_eng_step_init_;
-    Eigen::VectorXd ecmp_eng_step_init_;
-    Eigen::VectorXd eng_next_step_;
+    Eigen::MatrixXd vrp_ref_2021_;
+    Eigen::MatrixXd dcm_ref_2021_;
+    double step_calc_2021_x_;
+    double step_calc_2021_y_;
+
+    Eigen::MatrixXd vrp_ref_eng_;
+    Eigen::MatrixXd dcm_eos_eng_;
+    Eigen::MatrixXd dcm_ini_eng_;
+
+    Eigen::VectorXd dcm_estimate_calc_;
+    Eigen::VectorXd com_estimate_calc_;
+    Eigen::VectorXd vrp_estimate_calc_;
+    Eigen::VectorXd vrp_desired_feasible_;
+    Eigen::VectorXd foot_step_estimate_calc_;
+
+    Eigen::VectorXd eng_dcm_kp_;
     
     double param_R_df_y_calc_;
     double param_R_df_y_error_;
@@ -1985,6 +2007,8 @@ public:
 
     //Van RAL QCQP
     void comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcqp_, double preview_window_qcqp_, int MPC_synchro_hz_);
+    void comGenerator_MPC_vrp(double mpc_qcqp_freq, double dt_qcqp_, double preview_window_qcqp_, int MPC_synchro_hz_);
+    void comGenerator_MPC_vrp_insic(double mpc_qcqp_freq, double dt_qcqp_, double preview_window_qcqp_, int MPC_synchro_hz_);
     void comGenerator_MPC_ding(double mpc_qcqp_freq, double dt_qcqp_, double preview_window_qcqp_, int MPC_synchro_hz_);
     void dcmcontroller_MPC_e(double mpc_freq, double preview_window);
     void dcmcontroller_MPC_qcqp_e(double mpc_freq, double preview_window);
@@ -2024,11 +2048,11 @@ public:
     Eigen::MatrixXd C_dcm_dcm_qcqp_;
     Eigen::MatrixXd C_dcm_c_qcqp_;
     Eigen::MatrixXd C_dcm_cd_qcqp_;
-    Eigen::MatrixXd Czmp_qcqp_;
+    Eigen::MatrixXd Cvrp_qcqp_;
     Eigen::MatrixXd Cp_qcqp_;
     Eigen::MatrixXd Cv_qcqp_;
     Eigen::MatrixXd Ca_qcqp_;
-    Eigen::MatrixXd Pzmps_qcqp_;
+    Eigen::MatrixXd Pvrps_qcqp_;
     Eigen::MatrixXd F_psi_dcm_;
     Eigen::MatrixXd F_psi_dcm_dcm_;
     Eigen::MatrixXd F_psi_dcm_c_;
@@ -2038,7 +2062,7 @@ public:
     Eigen::MatrixXd Pps_qcqp_;
     Eigen::MatrixXd Pvs_qcqp_;
     Eigen::MatrixXd Pas_qcqp_;
-    Eigen::MatrixXd Pzmpu_qcqp_;
+    Eigen::MatrixXd Pvrpu_qcqp_;
     Eigen::MatrixXd F_p_dcm_;
     Eigen::MatrixXd F_p_dcm_dcm_;
     Eigen::MatrixXd F_p_dcm_c_;
@@ -2340,6 +2364,7 @@ public:
     Eigen::Vector2d MPC_qcqp_zmp_;
     Eigen::Vector2d MPC_qcqp_zmp_gurobi_;
     Eigen::Vector2d MPC_qcqp_sqp_gurobi_zmp_;
+    Eigen::Vector3d MPC_qcqp_sqp_gurobi_vrp_;
     Eigen::Vector2d MPC_qcqp_sqp_gurobi_zmp_p_;
     Eigen::Vector3d MPC_qcqp_sqp_gurobi_dcm_;
     double MPC_qcqp_sqp_gurobi_lambda_;

@@ -14,9 +14,16 @@ ofstream e_tmp_graph6("/home/econom2-20/data/e_tmp_graph6.txt");
 ofstream e_tmp_graph7("/home/econom2-20/data/e_tmp_graph7.txt");
 ofstream e_tmp_graph8("/home/econom2-20/data/e_tmp_graph8.txt");
 ofstream e_tmp_graph9("/home/econom2-20/data/e_tmp_graph9.txt");
-//ofstream e_tmp_graph10("/home/econom2-20/data/e_tmp_graph10.txt");
+ofstream e_tmp_graph10("/home/econom2-20/data/e_tmp_graph10.txt");
 ofstream e_tmp_graph11("/home/econom2-20/data/e_tmp_graph11.txt");
 ofstream e_tmp_graph12("/home/econom2-20/data/e_tmp_graph12.txt");
+ofstream e_tmp_graph13("/home/econom2-20/data/e_tmp_graph13.txt");
+ofstream e_tmp_graph14("/home/econom2-20/data/e_tmp_graph14.txt");
+
+ofstream e_tmp_graph15("/home/econom2-20/data/e_tmp_graph15.txt");
+ofstream e_tmp_graph16("/home/econom2-20/data/e_tmp_graph16.txt");
+
+ofstream e_tmp_graph17("/home/econom2-20/data/e_tmp_graph17.txt");
 
 AvatarController::AvatarController(RobotData &rd) : rd_(rd)
 {
@@ -61,7 +68,7 @@ AvatarController::AvatarController(RobotData &rd) : rd_(rd)
 
     pedal_command = nh_avatar_.subscribe("/tocabi/pedalcommand", 100, &AvatarController::PedalCommandCallback, this); //MJ
 
-    opto_ftsensor_sub = nh_avatar_.subscribe("/optoforce/ftsensor", 100, &AvatarController::OptoforceFTCallback, this); // real robot experiment
+    //opto_ftsensor_sub = nh_avatar_.subscribe("/optoforce/ftsensor", 100, &AvatarController::OptoforceFTCallback, this); // real robot experiment
 
     bool urdfmode = false;
     std::string urdf_path, desc_package_path;
@@ -71,12 +78,16 @@ AvatarController::AvatarController(RobotData &rd) : rd_(rd)
     ros::param::get("/econom2_exttheta",ext_theta_);
     ros::param::get("/econom2_ext_time",param_ext_force_time_);
 
-    /*
+    ros::param::get("/econom2_qcqp_int", param_qcqp_int_);
+    ros::param::get("/econom2_eng_int",param_eng_int_);
+    ros::param::get("/econom2_eng_x",param_eng_x_);
+    ros::param::get("/econom2_eng_y",param_eng_y_);
+
     ros::param::get("/econom2_Q_dcm_x",param_Q_dcm_x_);
     ros::param::get("/econom2_R_dcm_x",param_R_dcm_x_);
     ros::param::get("/econom2_R_f_x",param_R_f_x_);
     ros::param::get("/econom2_R_df_x",param_R_df_x_);
-    ros::param::get("/econom2_f_x_max",param_f_x_max_);
+    ros::param::get("/econom2_f_x_min",param_f_x_max_);
 
     ros::param::get("/econom2_Q_dcm_y",param_Q_dcm_y_);
     ros::param::get("/econom2_R_dcm_y",param_R_dcm_y_);
@@ -89,6 +100,9 @@ AvatarController::AvatarController(RobotData &rd) : rd_(rd)
 
     ros::param::get("/econom2_pelv_x",param_pelv_x_);
 
+    ros::param::get("/econom2_l_length", param_leg_length_);
+
+    /*
     ros::param::get("/econom2_qcqp_int", param_qcqp_int_);
     ros::param::get("/econom2_Qcpz", param_Qcpz_);
     ros::param::get("/econom2_Qcvz", param_Qcvz_);
@@ -775,9 +789,9 @@ void AvatarController::computeSlow()
                 torque_upper_.segment(12, MODEL_DOF - 12) = rd_.torque_desired.segment(12, MODEL_DOF - 12);
 
                 //qcqp_int_ = param_qcqp_int_; // 0 MJ_ICRA 1 DCM 2 Ding
-                //eng_int_ = param_eng_int_;
+                eng_int_ = param_eng_int_;
                 qcqp_int_ = 1;
-                eng_int_ = 0;
+                //eng_int_ = 1;
                 if(qcqp_int_ == 0) { cout << "MJ ICRA" << endl; }
                 else if(qcqp_int_ == 1) { cout << "E DCM MPC" << endl; }
                 else if(qcqp_int_ == 2) { cout << "Ding" << endl; }
@@ -887,8 +901,8 @@ void AvatarController::computeSlow()
                 q_prev_MJ_ = rd_.q_;
 
                 //if(current_step_num_ == param_ext_step_num_ && (walking_tick_mj >= t_start_ + t_rest_init_ + t_double1_ + param_ext_force_time_*hz_)  && (walking_tick_mj < t_start_ + t_rest_init_ + t_double1_ + (param_ext_force_time_ + 0.2)*hz_))
-                //if(current_step_num_ == 6 && (walking_tick_mj >= t_start_ + t_rest_init_ + t_double1_ + 0.1*hz_)  && (walking_tick_mj < t_start_ + t_rest_init_ + t_double1_ + (0.1 + 0.2)*hz_))
                 if(current_step_num_ == 6 && (walking_tick_mj >= t_start_ + param_ext_force_time_*hz_)  && (walking_tick_mj < t_start_ + (param_ext_force_time_ + 0.2)*hz_))
+                //if((current_step_num_ == 6 && walking_tick_mj >= t_start_ + param_ext_force_time_*hz_) || (current_step_num_ == 7 && walking_tick_mj < t_start_ + (param_ext_force_time_ + 0.2)*hz_ - t_total_))
                 { 
                     mujoco_applied_ext_force_.data[0] = ext_force_*cos(ext_theta_*DEG2RAD);
                     mujoco_applied_ext_force_.data[1] = ext_force_*sin(ext_theta_*DEG2RAD);
@@ -9802,6 +9816,7 @@ void AvatarController::computeThread3()
             com_start_tick_e_qcqp_mpc_ = com_start_tick_e_qcqp_thread_;
             
             ref_zmp_wo_offset_mpc_ = ref_zmp_wo_offset_thread_;
+            ref_zmp_e_mpc_ = ref_zmp_e_thread_;
 
             max_zmp_e_mpc_ = max_zmp_e_thread_;
             min_zmp_e_mpc_ = min_zmp_e_thread_;
@@ -9835,42 +9850,21 @@ void AvatarController::computeThread3()
             rfoot_prev_mpc_ = rfoot_prev_thread_;
             ref_com_e_mpc_ = ref_com_e_thread_;
 
-            if(walking_tick_e_qcqp_mpc_ < 400)
-            { ref_com_e_mpc_.col(1).setConstant(-0.1025); }
+            if(walking_tick_e_qcqp_mpc_ == 99) { com_calc_ = com_measured_mpc_(1); }
+            if(current_step_num_qcqp_mpc_ == 0) { ref_com_e_mpc_.block<4000,1>(0,1).setConstant(com_calc_); }
 
             atb_mpc_qcqp_update_ = false;
         }
 
         thread3_hz_ = 20.0;
-        
+
         comGenerator_MPC_qcqp(thread3_hz_, 1.0/thread3_hz_, 1.2, 2000/thread3_hz_);
+        //comGenerator_MPC_vrp(thread3_hz_, 1.0/thread3_hz_, 1.6, 2000/thread3_hz_);
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
         e_mpc_time_graph << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count()*1e-6 << ",";
         dcmcontroller_MPC_foot_e2(thread3_hz_, 1.1);
         std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
         e_mpc_time_graph << std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count()*1e-6 << endl;
-        
-        /*
-        run_planner_++;
-
-        MPC_qcqp_sqp_planner_hz_ = 10.0;
-
-        if(run_planner_ == 2)
-        {
-            run_planner_ = 0;
-            double prev_time = 1.2;
-            comGenerator_MPC_qcqp(MPC_qcqp_sqp_planner_hz_, 1.0/MPC_qcqp_sqp_planner_hz_, prev_time, 2000.0/MPC_qcqp_sqp_planner_hz_);
-        }
-
-        std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-        e_mpc_time_graph << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count()*1e-6 << "," ;
-
-        double prev_time = 1.1;
-        double mpc_hz = thread3_hz_;
-        dcmcontroller_MPC_foot_e(mpc_hz, prev_time);
-        std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
-        e_mpc_time_graph << std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count()*1e-6 << endl;
-        */
     }
     else if(qcqp_int_ == 2)
     {
@@ -11768,15 +11762,15 @@ void AvatarController::TrackerStatusCallback(const std_msgs::Bool &msg)
 }
  
 // real robot experiment
-void AvatarController::OptoforceFTCallback(const tocabi_msgs::FTsensor &msg)
-{
-    opto_ft_raw_(0) = msg.Fx;
-    opto_ft_raw_(1) = msg.Fy;
-    opto_ft_raw_(2) = msg.Fz;
-    opto_ft_raw_(3) = msg.Tx;
-    opto_ft_raw_(4) = msg.Ty;
-    opto_ft_raw_(5) = msg.Tz;
-}
+//void AvatarController::OptoforceFTCallback(const tocabi_msgs::FTsensor &msg)
+//{
+//    opto_ft_raw_(0) = msg.Fx;
+//    opto_ft_raw_(1) = msg.Fy;
+//    opto_ft_raw_(2) = msg.Fz;
+//    opto_ft_raw_(3) = msg.Tx;
+//    opto_ft_raw_(4) = msg.Ty;
+//    opto_ft_raw_(5) = msg.Tz;
+//}
 
 Eigen::MatrixXd AvatarController::discreteRiccatiEquationPrev(Eigen::MatrixXd a, Eigen::MatrixXd b, Eigen::MatrixXd r, Eigen::MatrixXd q)
 {
@@ -13322,8 +13316,14 @@ void AvatarController::addZmpOffset()
 
     if (qcqp_int_ == 1)
     {
-        lfoot_zmp_offset_ = -0.04;
-        rfoot_zmp_offset_ =  0.04;
+        lfoot_zmp_offset_ = -0.02;//-0.04;
+        rfoot_zmp_offset_ =  0.02;// 0.04;
+
+        if(eng_int_ != 0)
+        {
+            lfoot_zmp_offset_ = -0.02 + (1 - (bool)current_step_num_)*0.01;
+            rfoot_zmp_offset_ =  0.02 - (1 - (bool)current_step_num_)*0.01;
+        }
     }
     else if (qcqp_int_ == 2)
     {
@@ -13422,11 +13422,11 @@ void AvatarController::getZmpTrajectory()
     zmp_desired_(0) = ref_zmp_mj_(walking_tick_mj - (bool)current_step_num_*t_start_,0);
     zmp_desired_(1) = ref_zmp_mj_(walking_tick_mj - (bool)current_step_num_*t_start_,1);
 
-    zmp_max_(0) = ref_zmp_e_max_(walking_tick_mj - (bool)current_step_num_*t_start_,0);
-    zmp_max_(1) = ref_zmp_e_max_(walking_tick_mj - (bool)current_step_num_*t_start_,1);
+    //zmp_max_(0) = ref_zmp_e_max_(walking_tick_mj - (bool)current_step_num_*t_start_,0);
+    //zmp_max_(1) = ref_zmp_e_max_(walking_tick_mj - (bool)current_step_num_*t_start_,1);
 
-    zmp_min_(0) = ref_zmp_e_min_(walking_tick_mj - (bool)current_step_num_*t_start_,0);
-    zmp_min_(1) = ref_zmp_e_min_(walking_tick_mj - (bool)current_step_num_*t_start_,1);    
+    //zmp_min_(0) = ref_zmp_e_min_(walking_tick_mj - (bool)current_step_num_*t_start_,0);
+    //zmp_min_(1) = ref_zmp_e_min_(walking_tick_mj - (bool)current_step_num_*t_start_,1);    
 
     ref_zmp_wo_offset_mpc_.resize(norm_size, 2);
     ref_zmp_mpc_.resize(norm_size, 2);
@@ -13458,6 +13458,7 @@ void AvatarController::zmpGenerator(const unsigned int norm_size, const unsigned
 
     unsigned int index = 0;
     double t_total_zmp = t_total_;
+
     if (current_step_num_ == 0)  
     {
         ref_zmp_mj_.block(0, 0, 1.0*hz_, 1).setConstant(com_support_init_(0));
@@ -13614,7 +13615,6 @@ void AvatarController::zmpGenerator(const unsigned int norm_size, const unsigned
             index = index + t_total_zmp;                                                          
         }
     }
-
 }
 
 void AvatarController::onestepZmp_e(unsigned int current_step_number, Eigen::VectorXd &temp_px_max, Eigen::VectorXd &temp_py_max, Eigen::VectorXd &temp_px_min, Eigen::VectorXd &temp_py_min)
@@ -14118,10 +14118,13 @@ void AvatarController::getFootTrajectory_stepping()
     }
     
     if((abs(del_F_(0)) < 1e-2) && (qcqp_int_ == 1))
-    { target_swing_foot(0) = target_swing_foot(0) - 0.0075; }
+    { 
+        target_swing_foot(0) = target_swing_foot(0) - 0.0075 + 0.0053*(bool)eng_int_;
+    }
     
     zmp_modif_time_margin_ = 0.1*hz_;
-    //zmp_modif_time_margin_ = 0.2*hz_;
+    if(eng_int_ == 1) { zmp_modif_time_margin_ = 0.1*hz_; }
+    if(eng_int_ == 2) { zmp_modif_time_margin_ = 0.1*hz_; }
 
     if(walking_tick_mj == t_start_ + t_total_ - t_double2_ - t_rest_last_ - zmp_modif_time_margin_) // 조현민 처럼 Step으로 zmp를 변경하는게 아니라 부드럽게 바꿔줘도 좋을듯 / SSP 끝나기 0.1초 전 스윙 발 X,Y 고정
     {
@@ -14605,6 +14608,7 @@ void AvatarController::getPelvTrajectory()
     else if(qcqp_int_ == 1)
     {
         pelv_trajectory_support_.translation()(1) = pelv_support_current_.translation()(1) + 0.7 * (com_desired_(1) - com_support_current_(1));
+        //pelv_trajectory_support_.translation()(1) = pelv_support_current_.translation()(1) + 1.0 * (com_desired_(1) - com_support_current_(1));
         pelv_trajectory_support_.translation()(2) = pelv_support_current_.translation()(2) + 1.0 * (com_desired_(2) - com_support_current_(2));
     }
     else if(qcqp_int_ == 2)
@@ -15524,17 +15528,16 @@ void AvatarController::comGenerator_thread(const unsigned int norm_size, const u
     Eigen::VectorXd temp_cx, temp_cy, temp_cz;
     double com_x_offset_ = 0.0 + 0.02*(bool)step_length_x_;
 
-    //double h_diff = - param_Czref_calc_;// - 0.5*MPC_dcm_delf_fix_(0);// - sqrt(pow(0.5*MPC_dcm_delf_fix_(0),2) + pow(0.5*MPC_dcm_delf_fix_(1),2));
-    //double h_diff = - 0.022;
-    //double h_diff = - 0.015;
-    double h_diff = - (zc_mj_ - 0.712);
+    double com_height = 0.725;
+    double h_diff = - (zc_mj_ - com_height);
 
     if(walking_tick_e_qcqp_mpc_ <= 0.25*t_temp_)
-    { h_diff = - 0.0*(zc_mj_ - 0.712); }
+    { h_diff = - 0.0*(zc_mj_ - com_height); }
     else if (walking_tick_e_qcqp_mpc_ <= 0.75*t_temp_)
-    { h_diff = - 1.0*(zc_mj_ - 0.712); }
+    { h_diff = - 1.0*(zc_mj_ - com_height); }
 
-    ref_com_e_.block(0,0, norm_size,2) = ref_zmp_mj_.block(0,0, norm_size,2);
+    //ref_com_e_.block(0,0, norm_size,2) = ref_zmp_mj_.block(0,0, norm_size,2);
+    ref_com_e_.block(0,0, norm_size,2) = ref_zmp_e_mpc_.block(0,0, norm_size,2);
     ref_com_e_.block(0,2, norm_size,1).setConstant(zc_mj_ + h_diff);
 }
 
@@ -16619,6 +16622,10 @@ void AvatarController::getComFootTrajectory_mpc_qcqp()
     del_F_(1) = MPC_dcm_delf_r_(1);
 
     englesberger_dcm_controller();
+    if(eng_int_ == 2)
+    {
+        englesberger_dcm_step_2021();
+    }
 
     //step change
     //foot_step_support_frame_(current_step_num_,0) += MPC_dcm_delf_r_(0);
@@ -16755,68 +16762,369 @@ void AvatarController::getComFootTrajectory_mpc_qcqp()
     foot_step_support_frame_(current_step_num_,1) -= del_F_(1);
 }    
 
-void AvatarController::englesberger_dcm_controller()
+void AvatarController::englesberger_dcm_step_2021()
 {
-    double b_mpc = sqrt(zc_mj_/GRAVITY);
-    double lambda_ref = 0.0;
-    lambda_ref = (MPC_qcqp_sqp_gurobi_r_(8) + GRAVITY)/MPC_qcqp_sqp_gurobi_r_(6);
-
-    Eigen::VectorXd vrp_ref; vrp_ref.setZero(3);
-    vrp_ref(0) = lambda_ref*b_mpc*b_mpc*ZMP_X_REF_ + (1 - lambda_ref*b_mpc*b_mpc)*MPC_qcqp_sqp_gurobi_r_(0);
-    vrp_ref(1) = lambda_ref*b_mpc*b_mpc*ZMP_Y_REF_ + (1 - lambda_ref*b_mpc*b_mpc)*MPC_qcqp_sqp_gurobi_r_(3);
-    vrp_ref(2) =                                     (1 - lambda_ref*b_mpc*b_mpc)*MPC_qcqp_sqp_gurobi_r_(6) + GRAVITY*b_mpc*b_mpc;
-
-    vrp_desired_ = vrp_ref;
-
-    if(walking_tick_mj == 0) 
-    { 
-        vrp_eng_step_init_.setZero(3); 
-        ecmp_eng_step_init_.setZero(3); 
-        com_eng_step_init_.setZero(3); 
-        dcm_eng_step_init_.setZero(3); 
-        eng_next_step_.setZero(2);
-    }
-        
-    if(walking_tick_mj == t_start_)
+    double b_dcm = sqrt(zc_mj_/GRAVITY);
+    if((walking_tick_mj == t_start_ + t_double1_ + t_rest_init_))
     {
-        eng_next_step_.setZero(2);
-    }
+        int dcm_preview_hz = 100;
+        int dcm_preview = 3*1*dcm_preview_hz + 1;
+        dcm_ref_2021_.setZero(dcm_preview,3);
+        dcm_ref_2021_(dcm_preview - 1,0) = ref_zmp_mj_(walking_tick_mj - (bool)current_step_num_*t_start_ + hz_*(dcm_preview - 1)/dcm_preview_hz,1);
+        dcm_ref_2021_(dcm_preview - 1,1) = ref_zmp_mj_(walking_tick_mj - (bool)current_step_num_*t_start_ + hz_*(dcm_preview - 1)/dcm_preview_hz,1);
+        dcm_ref_2021_(dcm_preview - 1,2) = 0.0 + zc_mj_;
 
-    if(walking_tick_mj == t_start_ + t_rest_init_ + t_double1_)
-    { 
-        dcm_eng_step_init_ = dcm_measured_; vrp_eng_step_init_ = dcm_eng_step_init_/(1 - exp(-0.6/b_mpc)); com_eng_step_init_ = com_support_current_;
+        Eigen::Vector3d vrp_des; 
+        Eigen::Vector3d dcm_dot;
 
-        ecmp_eng_step_init_ = vrp_eng_step_init_; ecmp_eng_step_init_(2) = vrp_eng_step_init_(2) - GRAVITY*b_mpc*b_mpc;
-
-        double b = com_eng_step_init_(2)/(com_eng_step_init_(2) - ecmp_eng_step_init_(2));
-        double a = (1 - b);
-
-        eng_next_step_(0) = a*com_eng_step_init_(0) + b*ecmp_eng_step_init_(0);
-        eng_next_step_(1) = a*com_eng_step_init_(1) + b*ecmp_eng_step_init_(1);
-    }
-
-    if(abs(eng_next_step_(0)) > 0.03)
-    {
-        if(eng_int_ == 1)
+        for(int i = 1; i < dcm_preview; i++)
         {
-            del_F_(0) = eng_next_step_(0);
-            del_F_(0) = DyrosMath::minmax_cut(eng_next_step_(0), -0.25, 0.25);
+            vrp_des(1) = ref_zmp_mj_(walking_tick_mj - (bool)current_step_num_*t_start_ + hz_*(dcm_preview - i - 1)/dcm_preview_hz,1);
+            dcm_ref_2021_(dcm_preview - i - 1,1) = (dcm_ref_2021_(dcm_preview - i,1) + vrp_des(1)/(b_dcm*dcm_preview_hz))/(1 + 1/(b_dcm*dcm_preview_hz));
         }
+    }
+
+    double SS_time_calc = 0.0;
+    double SS_total_time = (t_total_ - t_double1_ - t_rest_init_ - t_double2_ - t_rest_last_)/hz_;
+
+    double DS_time_calc = 0.0;
+    double DS_total_time = (t_double1_ + t_rest_init_ + t_double2_ + t_rest_last_)/hz_;
+    if(walking_tick_mj > t_start_ + t_total_ - t_double2_ - t_rest_last_)
+    {
+        DS_time_calc = (walking_tick_mj - (t_start_ + t_total_ - t_double2_ - t_rest_last_))/hz_;
+    }
+    else if(walking_tick_mj <= t_start_ + t_double1_ + t_rest_init_)
+    {
+        DS_time_calc = (walking_tick_mj - (t_start_) + t_double2_ + t_rest_last_)/hz_;
     }
     else
     {
-        if(eng_int_ == 1)
+        SS_time_calc = (walking_tick_mj - t_double1_ - t_rest_init_ - t_start_)/hz_;
+    }
+
+    double alpha_DS   = 1 - DS_time_calc/DS_total_time - b_dcm*(1 - exp((DS_time_calc - DS_total_time)/b_dcm))/DS_total_time;
+    double alpha_DS_0 = 1 - 0/DS_total_time - b_dcm*(1 - exp((0 - DS_total_time)/b_dcm))/DS_total_time;
+    double beta_DS    = DS_time_calc/DS_total_time - exp((DS_time_calc - DS_total_time)/b_dcm) + b_dcm*(1 - exp((DS_time_calc - DS_total_time)/b_dcm))/DS_total_time;
+    double gamma_DS   = exp((DS_time_calc - DS_total_time)/b_dcm);
+    double gamma_DS_0 = exp((0 - DS_total_time)/b_dcm);
+    double gamma_SS   = exp((SS_time_calc - SS_total_time)/b_dcm);
+    double gamma_SS_0 = exp((0 - SS_total_time)/b_dcm);
+
+    double dcm_tilda_ankle_max_x = 0.0;
+    double dcm_tilda_ankle_min_x = 0.0;
+    double dcm_tilda_ankle_max_y = 0.0;
+    double dcm_tilda_ankle_min_y = 0.0;
+    double f_step = 0.0;
+    double zmp_x_max_eng_2021 = 0.01;
+    double zmp_x_min_eng_2021 = 0.01;
+    double zmp_y_max_eng_2021 = 0.01;
+    double zmp_y_min_eng_2021 = 0.01;
+    if(SS_time_calc != 0)
+    {
+        dcm_tilda_ankle_max_x = (1 - gamma_SS + gamma_SS*alpha_DS_0)*(foot_step_support_frame_(current_step_num_,0) + zmp_x_max_eng_2021);
+        dcm_tilda_ankle_min_x = (1 - gamma_SS + gamma_SS*alpha_DS_0)*(foot_step_support_frame_(current_step_num_,0) - zmp_x_min_eng_2021);
+        if((current_step_num_ % 2) == 0)
+        { dcm_tilda_ankle_min_y = (1 - gamma_SS + gamma_SS*alpha_DS_0)*(0.0 - zmp_y_min_eng_2021); }
+        else
+        { dcm_tilda_ankle_min_y = (1 - gamma_SS + gamma_SS*alpha_DS_0)*(zmp_y_min_eng_2021); }
+        f_step = gamma_SS*(1 - alpha_DS_0)*(1 - gamma_SS_0*gamma_DS_0);
+    }
+    else
+    {   
+        dcm_tilda_ankle_max_x = alpha_DS*(foot_step_support_frame_(current_step_num_,0) + zmp_x_max_eng_2021) + (1 - alpha_DS - gamma_DS*gamma_SS*(1 - alpha_DS_0))*(foot_step_support_frame_(current_step_num_,0) + zmp_x_max_eng_2021);
+        dcm_tilda_ankle_min_x = alpha_DS*(foot_step_support_frame_(current_step_num_,0) - zmp_x_min_eng_2021) + (1 - alpha_DS - gamma_DS*gamma_SS*(1 - alpha_DS_0))*(foot_step_support_frame_(current_step_num_,0) - zmp_x_min_eng_2021);
+        if((current_step_num_ % 2) == 0)
+        { dcm_tilda_ankle_min_y = alpha_DS*(0.0 - zmp_y_min_eng_2021) + (1 - alpha_DS - gamma_DS*gamma_SS*(1 - alpha_DS_0))*(0.0 - zmp_y_min_eng_2021); }
+        else
+        { dcm_tilda_ankle_min_y = alpha_DS*(zmp_y_min_eng_2021) + (1 - alpha_DS - gamma_DS*gamma_SS*(1 - alpha_DS_0))*(zmp_y_min_eng_2021); }
+        f_step = gamma_DS*gamma_SS_0*(1 - alpha_DS_0)*(1 - gamma_SS_0*gamma_DS_0);
+    }
+
+    if((walking_tick_mj == t_start_)||(walking_tick_mj == 0))
+    { 
+        step_calc_2021_x_ = 0.0;
+        step_calc_2021_y_ = 0.0;
+    }
+
+    if(walking_tick_mj <= t_start_ + t_total_ - t_double2_ - t_rest_last_ - 0.1*hz_)
+    {
+        if(dcm_measured_(0) < dcm_tilda_ankle_min_x)
         {
-            del_F_(0) = 0.0;
+            step_calc_2021_x_ = f_step*(dcm_measured_(0) - dcm_desired_(0) - dcm_tilda_ankle_min_x);
+        }
+        
+        if(dcm_measured_(0) > dcm_tilda_ankle_max_x)
+        {
+            step_calc_2021_x_ = f_step*(dcm_measured_(0) - dcm_desired_(0) - dcm_tilda_ankle_max_x);
+        }
+
+        if((current_step_num_ % 2) == 0 && (dcm_measured_(1) - dcm_desired_(1) < dcm_tilda_ankle_min_y))
+        {
+            step_calc_2021_y_ = f_step*(dcm_measured_(1) - dcm_desired_(1) - dcm_tilda_ankle_min_y);
+        }
+
+        if((current_step_num_ % 2) == 1 && (dcm_measured_(1) - dcm_desired_(1) > dcm_tilda_ankle_min_y))
+        {
+            step_calc_2021_y_ = f_step*( - dcm_measured_(1) + dcm_desired_(1) + dcm_tilda_ankle_min_y);
         }
     }
 
-    e_tmp_graph12 << dcm_eng_step_init_(0) << "," << dcm_eng_step_init_(1) << "," << dcm_eng_step_init_(2) << ","
-                  << com_eng_step_init_(0) << "," << com_eng_step_init_(1) << "," << com_eng_step_init_(2) << ","
-                  << vrp_eng_step_init_(0) << "," << vrp_eng_step_init_(1) << "," << vrp_eng_step_init_(2) << ","
-                  << ecmp_eng_step_init_(0)<< "," << ecmp_eng_step_init_(1)<< "," << ecmp_eng_step_init_(2)<< ","
-                  << eng_next_step_(0)     << "," << eng_next_step_(1)     << "," 
+    del_F_(0) = 1.0*step_calc_2021_x_;
+    del_F_(1) = 1.0*step_calc_2021_y_;
+
+    e_tmp_graph15 << dcm_measured_(0)                           << "," << dcm_measured_(1)                           << ","
+                  << dcm_tilda_ankle_max_x                      << "," << dcm_tilda_ankle_max_y                      << ","
+                  << dcm_tilda_ankle_min_x                      << "," << dcm_tilda_ankle_min_y                      << ","
+                  << step_calc_2021_x_                          << "," << step_calc_2021_y_                          << ","
+                  << dcm_desired_(0)                            << "," << dcm_desired_(1)                            << ","
+                  << del_F_(0)                                  << "," << del_F_(1)                                  << ","
                   << endl;
+}
+
+void AvatarController::englesberger_dcm_controller()
+{
+    double b_mpc = sqrt(zc_mj_/GRAVITY);
+
+    if(walking_tick_mj == 0)
+    {
+        vrp_ref_eng_.setZero(4,3);
+        dcm_eos_eng_.setZero(3,3);
+        dcm_ini_eng_.setZero(3,3);
+        eng_dcm_kp_.setZero(3);
+        //eng_dcm_kp_(0) = 6.5;
+        //eng_dcm_kp_(0) = 15.0;
+        eng_dcm_kp_(0) = param_eng_x_;        
+        eng_dcm_kp_(1) = 1.2;
+        eng_dcm_kp_(2) = 3.5;
+    }
+
+    /*
+    if((current_step_num_ > 0)&&(walking_tick_mj == t_start_ + t_double1_ + t_rest_init_))
+    {
+        for(int i = 1; i < 5; i++)
+        {
+            vrp_ref_eng_(4-i,0) = foot_step_support_frame_(current_step_num_ + 3 - i,0);
+            //vrp_ref_eng_(4-i,1) = foot_step_support_frame_(current_step_num_ + 3 - i,1);
+            vrp_ref_eng_(4-i,1) = foot_step_support_frame_offset_(current_step_num_ + 3 - i,1);
+            vrp_ref_eng_(4-i,2) = foot_step_support_frame_(current_step_num_ + 3 - i,2) + zc_mj_;
+
+            if(i == 1)
+            {
+                dcm_eos_eng_(3-i,0) = vrp_ref_eng_(4-i,0);
+                dcm_eos_eng_(3-i,1) = vrp_ref_eng_(4-i,1);
+                dcm_eos_eng_(3-i,2) = vrp_ref_eng_(4-i,2);
+            }
+            else
+            {
+                dcm_ini_eng_(4-i,0) = vrp_ref_eng_(4-i,0) + exp(-1.0/b_mpc)*(dcm_eos_eng_(4-i,0) - vrp_ref_eng_(4-i,0));
+                dcm_ini_eng_(4-i,1) = vrp_ref_eng_(4-i,1) + exp(-1.0/b_mpc)*(dcm_eos_eng_(4-i,1) - vrp_ref_eng_(4-i,1));
+                dcm_ini_eng_(4-i,2) = vrp_ref_eng_(4-i,2) + exp(-1.0/b_mpc)*(dcm_eos_eng_(4-i,2) - vrp_ref_eng_(4-i,2));
+
+                if(i != 4)
+                {
+                    dcm_eos_eng_(3-i,0) = dcm_ini_eng_(4-i,0);
+                    dcm_eos_eng_(3-i,1) = dcm_ini_eng_(4-i,1);
+                    dcm_eos_eng_(3-i,2) = dcm_ini_eng_(4-i,2);
+                }
+            }
+        }
+    }
+
+    Eigen::MatrixXd dcm_desired_eng; dcm_desired_eng.setZero(1.0*hz_,3);
+    for(int i = 0; i < 1.0*hz_; i++)
+    {
+        dcm_desired_eng(i,0) = vrp_ref_eng_(0,0) + exp((i/hz_ - 1.0)/b_mpc)*(dcm_eos_eng_(0,0) - vrp_ref_eng_(0,0));
+        dcm_desired_eng(i,1) = vrp_ref_eng_(0,1) + exp((i/hz_ - 1.0)/b_mpc)*(dcm_eos_eng_(0,1) - vrp_ref_eng_(0,1));
+        dcm_desired_eng(i,2) = vrp_ref_eng_(0,2) + exp((i/hz_ - 1.0)/b_mpc)*(dcm_eos_eng_(0,2) - vrp_ref_eng_(0,2));
+    }
+    Eigen::VectorXd dcm_calc; dcm_calc.setZero(3);
+    if(walking_tick_mj >= t_start_ + t_double1_ + t_rest_init_)
+    {
+        dcm_calc(0) = dcm_desired_eng(walking_tick_mj - t_start_ - t_double1_ - t_rest_init_, 0);
+        dcm_calc(1) = dcm_desired_eng(walking_tick_mj - t_start_ - t_double1_ - t_rest_init_, 1);
+        dcm_calc(2) = dcm_desired_eng(walking_tick_mj - t_start_ - t_double1_ - t_rest_init_, 2);
+    }
+    if((current_step_num_ > 0)&&(walking_tick_mj < t_start_ + t_double1_ + t_rest_init_))
+    {
+        dcm_calc(0) = dcm_desired_eng(walking_tick_mj - t_start_ + t_total_ - t_double1_ - t_rest_init_, 0);
+        dcm_calc(1) = dcm_desired_eng(walking_tick_mj - t_start_ + t_total_ - t_double1_ - t_rest_init_, 1);
+        dcm_calc(2) = dcm_desired_eng(walking_tick_mj - t_start_ + t_total_ - t_double1_ - t_rest_init_, 2);
+
+        if(current_step_num_ > 1)
+        {
+            dcm_calc(0) += foot_step_support_frame_(current_step_num_-2,0);
+            dcm_calc(1) += foot_step_support_frame_(current_step_num_-2,1);
+            dcm_calc(2) += foot_step_support_frame_(current_step_num_-2,2);
+        }
+    }
+
+    Eigen::VectorXd vrp_calc; vrp_calc.setZero(3);
+    if((current_step_num_ > 1)&&(walking_tick_mj < t_start_ + t_double1_ + t_rest_init_))
+    {
+        vrp_calc(0) = vrp_ref_eng_(0,0) + foot_step_support_frame_(current_step_num_-2,0);
+        vrp_calc(1) = vrp_ref_eng_(0,1) + foot_step_support_frame_(current_step_num_-2,1);
+        vrp_calc(2) = vrp_ref_eng_(0,2) + foot_step_support_frame_(current_step_num_-2,2);
+    }
+    if((current_step_num_ > 0)&&(walking_tick_mj >= t_start_ + t_double1_ + t_rest_init_))
+    {
+        vrp_calc(0) = vrp_ref_eng_(0,0);
+        vrp_calc(1) = vrp_ref_eng_(0,1);
+        vrp_calc(2) = vrp_ref_eng_(0,2);
+    }
+
+    //controller
+    Eigen::VectorXd del_vrp; del_vrp.setZero(3);
+    del_vrp(0) = eng_dcm_kp_(0)*(dcm_measured_(0) - dcm_calc(0));
+    del_vrp(1) = eng_dcm_kp_(1)*(dcm_measured_(1) - dcm_calc(1));
+    del_vrp(2) = eng_dcm_kp_(2)*(dcm_measured_(2) - dcm_calc(2));
+
+    Eigen::VectorXd vrp_des; vrp_des.setZero(3);
+    vrp_des(0) = vrp_calc(0) + del_vrp(0);
+    vrp_des(1) = zmp_desired_(1) + del_vrp(1);
+    vrp_des(2) = vrp_calc(2) + del_vrp(2);
+
+    if(walking_tick_mj == 0)
+    {
+        dcm_estimate_calc_.setZero(3);
+        com_estimate_calc_.setZero(3);
+        vrp_estimate_calc_.setZero(3);
+        foot_step_estimate_calc_.setZero(3);
+        vrp_desired_feasible_.setZero(3);
+    }
+
+    if(int(walking_tick_mj - t_start_)%50 == 0)
+    {
+        Eigen::VectorXd dcm_calc;     dcm_calc.resize(3);     dcm_calc = dcm_measured_;
+        Eigen::VectorXd dcm_dot_calc; dcm_dot_calc.resize(3); dcm_dot_calc.setZero();
+        Eigen::VectorXd vrp_calc;     vrp_calc.resize(3);     vrp_calc = vrp_des;
+        Eigen::VectorXd del_vrp_calc; del_vrp_calc.resize(3); del_vrp_calc = del_vrp;
+        Eigen::VectorXd vrp_feasible; vrp_feasible.resize(3); vrp_feasible.setZero();
+        Eigen::VectorXd zmp_calc;     zmp_calc.resize(3);     zmp_calc.setZero();
+        Eigen::VectorXd com_calc;     com_calc.resize(3);     com_calc = com_measured_;
+        Eigen::VectorXd com_dot_calc; com_dot_calc.resize(3); com_dot_calc = com_dot_measured_;
+        Eigen::VectorXd com_acc_calc; com_acc_calc.resize(3); com_acc_calc.setZero();
+
+        if((current_step_num_ > 0) && (walking_tick_mj > t_start_ + t_double1_ + t_rest_init_))
+        {
+            for(int i = 0; i < t_start_ + t_total_ + t_double1_ + t_rest_init_ - walking_tick_mj - 50; i+=50)
+            {
+                del_vrp_calc(0) = eng_dcm_kp_(0)*(dcm_calc(0) - dcm_desired_eng(walking_tick_mj - t_start_ - t_double1_ - t_rest_init_ + i, 0));
+                del_vrp_calc(1) = eng_dcm_kp_(1)*(dcm_calc(1) - dcm_desired_eng(walking_tick_mj - t_start_ - t_double1_ - t_rest_init_ + i, 1));
+                del_vrp_calc(2) = eng_dcm_kp_(2)*(dcm_calc(2) - dcm_desired_eng(walking_tick_mj - t_start_ - t_double1_ - t_rest_init_ + i, 2));
+                
+                vrp_calc(0) = vrp_ref_eng_(0,0) + del_vrp_calc(0);
+                vrp_calc(1) = vrp_ref_eng_(0,1) + del_vrp_calc(1);
+                vrp_calc(2) = vrp_ref_eng_(0,2) + del_vrp_calc(2);
+
+                double lambda_calc = (com_calc(2) - vrp_calc(2) + zc_mj_)/(com_calc(2)*b_mpc*b_mpc);
+                double zmp_x_calc = (vrp_calc(0) - (1 - lambda_calc*b_mpc*b_mpc)*com_calc(0))/(lambda_calc*b_mpc*b_mpc);
+                double zmp_y_calc = (vrp_calc(1) - (1 - lambda_calc*b_mpc*b_mpc)*com_calc(1))/(lambda_calc*b_mpc*b_mpc);
+
+                //projection
+                Eigen::VectorXd ecmp_calc;          ecmp_calc.setZero(3); ecmp_calc = vrp_calc; ecmp_calc(2) = vrp_calc(2) - zc_mj_;
+                Eigen::VectorXd ecmp_calc_feasible; ecmp_calc_feasible.setZero(3);
+
+                zmp_calc << zmp_x_calc, zmp_y_calc, 0;
+
+                if(zmp_calc(0) < ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0) - zmp_x_min) { zmp_calc(0) = ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0) - zmp_x_min; }
+                if(zmp_calc(0) > ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0) + zmp_x_max) { zmp_calc(0) = ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0) + zmp_x_max; }
+
+                if(zmp_calc(1) < ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,1) - zmp_y_min) { zmp_calc(1) = ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,1) - zmp_y_min; }
+                if(zmp_calc(1) > ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,1) + zmp_y_max) { zmp_calc(1) = ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,1) + zmp_y_max; }
+
+                Eigen::VectorXd zmp_com_calc_vector; zmp_com_calc_vector.setZero(3);
+                zmp_com_calc_vector = zmp_calc - com_calc;
+                double zmp_calc_vector_size = sqrt(pow(zmp_com_calc_vector(0),2) + pow(zmp_com_calc_vector(1),2) + pow(zmp_com_calc_vector(2),2));
+                zmp_com_calc_vector(0) = zmp_com_calc_vector(0)/zmp_calc_vector_size;
+                zmp_com_calc_vector(1) = zmp_com_calc_vector(1)/zmp_calc_vector_size;
+                zmp_com_calc_vector(2) = zmp_com_calc_vector(2)/zmp_calc_vector_size;
+
+                ecmp_calc_feasible = com_calc + zmp_com_calc_vector*(zmp_com_calc_vector(0)*(ecmp_calc(0) - com_calc(0)) 
+                                                                   + zmp_com_calc_vector(1)*(ecmp_calc(1) - com_calc(1))
+                                                                   + zmp_com_calc_vector(2)*(ecmp_calc(2) - com_calc(2)));
+
+                vrp_feasible = ecmp_calc_feasible; vrp_feasible(2) = ecmp_calc_feasible(2) + zc_mj_;
+
+                //com_acc_calc = (com_calc - vrp_feasible)/(b_mpc*b_mpc);
+                //com_dot_calc = com_dot_calc + 50*com_acc_calc/hz_;
+                com_dot_calc = (dcm_calc - com_calc)/b_mpc;
+                com_calc     = com_calc     + 50*com_dot_calc/hz_;
+
+                dcm_dot_calc = (dcm_calc - vrp_feasible)/b_mpc;
+                dcm_calc     = dcm_calc     + 50*dcm_dot_calc/hz_;
+            }
+
+            dcm_estimate_calc_ = dcm_calc;
+
+            vrp_estimate_calc_(0) = (dcm_estimate_calc_(0) - exp(-1.0/b_mpc)*dcm_eos_eng_(1,0))/(1 - exp(-1.0/b_mpc));
+            vrp_estimate_calc_(1) = (dcm_estimate_calc_(1) - exp(-1.0/b_mpc)*dcm_eos_eng_(1,1))/(1 - exp(-1.0/b_mpc));
+            vrp_estimate_calc_(2) = (dcm_estimate_calc_(2) - exp(-1.0/b_mpc)*dcm_eos_eng_(1,2))/(1 - exp(-1.0/b_mpc));
+
+            com_estimate_calc_ = com_calc;
+
+            Eigen::VectorXd ecmp_step_calc; ecmp_step_calc.setZero(3);
+            ecmp_step_calc = vrp_estimate_calc_; ecmp_step_calc(2) = vrp_estimate_calc_(2) - zc_mj_;
+
+            double b = com_estimate_calc_(2)/(com_estimate_calc_(2) - ecmp_step_calc(2));
+            double a = (1 - b);
+
+            if(walking_tick_mj <= t_start_ + t_total_ - t_double1_ - t_rest_init_ - 0.1*hz_)
+            {
+                foot_step_estimate_calc_(0) = a*com_estimate_calc_(0) + b*ecmp_step_calc(0);
+                foot_step_estimate_calc_(1) = a*com_estimate_calc_(1) + b*ecmp_step_calc(1);
+            }
+        }
+    }
+
+    if(eng_int_ == 1)
+    {
+        if(foot_step_estimate_calc_(0) > - zmp_x_min)
+        {
+            del_F_(0) = 0.0;
+        }
+        else
+        {
+            //del_F_(0) = DyrosMath::minmax_cut(foot_step_estimate_calc_(0) + 0.0*zmp_x_min, -0.2, 0.2);
+            del_F_(0) = DyrosMath::minmax_cut(foot_step_estimate_calc_(0), -0.5, 0.5);
+        }
+    }
+
+    double lambda_calc = (com_measured_(2) - vrp_des(2) + zc_mj_)/(com_measured_(2)*b_mpc*b_mpc);
+    double zmp_x_calc = (vrp_des(0) - (1 - lambda_calc*b_mpc*b_mpc)*com_measured_(0))/(lambda_calc*b_mpc*b_mpc);
+    double zmp_y_calc = (vrp_des(1) - (1 - lambda_calc*b_mpc*b_mpc)*com_measured_(1))/(lambda_calc*b_mpc*b_mpc);
+
+    //projection
+    Eigen::VectorXd ecmp_calc;          ecmp_calc.setZero(3);          ecmp_calc = vrp_des; ecmp_calc(2) = vrp_des(2) - zc_mj_;
+    Eigen::VectorXd ecmp_calc_feasible; ecmp_calc_feasible.setZero(3);
+    Eigen::VectorXd zmp_calc;           zmp_calc.setZero(3);           zmp_calc << zmp_x_calc, zmp_y_calc, 0;
+
+    if(zmp_calc(0) < ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0) - zmp_x_min) { zmp_calc(0) = ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0) - zmp_x_min; }
+    if(zmp_calc(0) > ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0) + zmp_x_max) { zmp_calc(0) = ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0) + zmp_x_max; }
+
+    if(zmp_calc(1) < ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,1) - zmp_y_min) { zmp_calc(1) = ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,1) - zmp_y_min; }
+    if(zmp_calc(1) > ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,1) + zmp_y_max) { zmp_calc(1) = ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,1) + zmp_y_max; }
+
+    Eigen::VectorXd zmp_com_calc_vector; zmp_com_calc_vector.setZero(3);
+    zmp_com_calc_vector = zmp_calc - com_measured_;
+    double zmp_calc_vector_size = sqrt(pow(zmp_com_calc_vector(0),2) + pow(zmp_com_calc_vector(1),2) + pow(zmp_com_calc_vector(2),2));
+    zmp_com_calc_vector(0) = zmp_com_calc_vector(0)/zmp_calc_vector_size;
+    zmp_com_calc_vector(1) = zmp_com_calc_vector(1)/zmp_calc_vector_size;
+    zmp_com_calc_vector(2) = zmp_com_calc_vector(2)/zmp_calc_vector_size;
+
+    ecmp_calc_feasible = com_measured_ + zmp_com_calc_vector*(zmp_com_calc_vector(0)*(ecmp_calc(0) - com_measured_(0)) 
+                                                            + zmp_com_calc_vector(1)*(ecmp_calc(1) - com_measured_(1))
+                                                            + zmp_com_calc_vector(2)*(ecmp_calc(2) - com_measured_(2)));
+
+    vrp_desired_feasible_ = ecmp_calc_feasible; vrp_desired_feasible_(2) = ecmp_calc_feasible(2) + zc_mj_;
+
+    e_tmp_graph16 << dcm_measured_(0)            << "," << dcm_measured_(1)            << "," << dcm_measured_(2)         << ","
+                  << dcm_desired_(0)             << "," << dcm_desired_(1)             << "," << dcm_desired_(2)          << ","
+                  << dcm_estimate_calc_(0)       << "," << dcm_estimate_calc_(1)       << "," << dcm_estimate_calc_(2)    << ","
+                  << vrp_estimate_calc_(0)       << "," << vrp_estimate_calc_(1)       << "," << vrp_estimate_calc_(2)    << ","
+                  << foot_step_estimate_calc_(0) << "," << foot_step_estimate_calc_(1) << "," << 0                        << ","
+                  << vrp_desired_feasible_(0)    << "," << vrp_desired_feasible_(1)    << "," << vrp_desired_feasible_(2) << ","
+                  << endl;
+    */
 }
 
 void AvatarController::getComTrajectory_mpc_ding()
@@ -17193,16 +17501,8 @@ void AvatarController::getComTrajectory_mpc_ding()
 void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcqp_, double preview_window_qcqp_, int MPC_synchro_hz_)
 {
     double Qcpx, Qcvx, Qcax, Qcpy, Qcvy, Qcay, Qcpz, Qcvz, Qcaz, Rcx, Rcy, Rcz;
-    //Qcpx = 1e-1;        Qcvx = 1e-2;        Qcax = 1e-6;        Rcx = 1e-6;
-    //Qcpy = 5e-2;        Qcvy = 5e-3;        Qcay = 0e-0;        Rcy = 1e-6;
-    //Qcpx = 5e-2;        Qcvx = 5e-3;        Qcax = 1e-6;        Rcx = 1e-6;
-    //Qcpy = 7e-2;        Qcvy = 5e-3;        Qcay = 0e-0;        Rcy = 1e-6;
-    
     Qcpx = 1e-1;        Qcvx = 1e-2;        Qcax = 1e-6;        Rcx = 1e-6;
     Qcpy = 5e-2;        Qcvy = 5e-3;        Qcay = 0e-0;        Rcy = 1e-6;
-
-  //Qcpz = param_Qcpz_; Qcvz = param_Qcvz_; Qcaz = param_Qcaz_; Rcz = 1e-6;
-  //Qcpz = 5e-1;        Qcvz = 1e-1;        Qcaz = 1e-4;        Rcz = 1e-6;
     Qcpz = 1e-0;        Qcvz = 1e-1;        Qcaz = 1e-4;        Rcz = 1e-6;
 
     int mpc_tick = walking_tick_e_qcqp_mpc_ - com_start_tick_e_qcqp_mpc_;
@@ -17283,27 +17583,42 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
 
             Qmat_qcqp_.resize(N_qcqp,N_qcqp);
             Qmat_qcqp_.setIdentity();
+            Eigen::MatrixXd Qvmat_qcqp; Qvmat_qcqp.resize(N_qcqp,N_qcqp); Qvmat_qcqp.setZero();
+            Eigen::MatrixXd Qamat_qcqp; Qamat_qcqp.resize(N_qcqp,N_qcqp); Qamat_qcqp.setZero();
+            for(int i = 0; i < N_qcqp; i++)
+            {
+                if(i < 0.3*N_qcqp)
+                {
+                    Qvmat_qcqp(i,i) = 1;
+                    Qamat_qcqp(i,i) = 1;
+                }
+                if(i >= 0.3*N_qcqp)
+                {
+                    Qvmat_qcqp(i,i) = 1;
+                    Qamat_qcqp(i,i) = 1;
+                }
+            }
 
             Qxcalc_qcqp_.setZero(N_qcqp, N_qcqp);
-            Qxcalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpx*Qmat_qcqp_*Ppu_qcqp_ + Pvu_qcqp_.transpose()*Qcvx*Qmat_qcqp_*Pvu_qcqp_ + Pau_qcqp_.transpose()*Qcax*Qmat_qcqp_*Pau_qcqp_ + Rcx*Qmat_qcqp_;
+            Qxcalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpx*Qmat_qcqp_*Ppu_qcqp_ + Pvu_qcqp_.transpose()*Qcvx*Qvmat_qcqp*Pvu_qcqp_ + Pau_qcqp_.transpose()*Qcax*Qamat_qcqp*Pau_qcqp_ + Rcx*Qmat_qcqp_;
 
             Qycalc_qcqp_.setZero(N_qcqp, N_qcqp);
-            Qycalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Ppu_qcqp_ + Pvu_qcqp_.transpose()*Qcvy*Qmat_qcqp_*Pvu_qcqp_ + Pau_qcqp_.transpose()*Qcay*Qmat_qcqp_*Pau_qcqp_ + Rcy*Qmat_qcqp_;
+            Qycalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Ppu_qcqp_ + Pvu_qcqp_.transpose()*Qcvy*Qvmat_qcqp*Pvu_qcqp_ + Pau_qcqp_.transpose()*Qcay*Qamat_qcqp*Pau_qcqp_ + Rcy*Qmat_qcqp_;
 
             Qzcalc_qcqp_.setZero(N_qcqp, N_qcqp);
-            Qzcalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpz*Qmat_qcqp_*Ppu_qcqp_ + Pvu_qcqp_.transpose()*Qcvz*Qmat_qcqp_*Pvu_qcqp_ + Pau_qcqp_.transpose()*Qcaz*Qmat_qcqp_*Pau_qcqp_ + Rcz*Qmat_qcqp_;
+            Qzcalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpz*Qmat_qcqp_*Ppu_qcqp_ + Pvu_qcqp_.transpose()*Qcvz*Qvmat_qcqp*Pvu_qcqp_ + Pau_qcqp_.transpose()*Qcaz*Qamat_qcqp*Pau_qcqp_ + Rcz*Qmat_qcqp_;
 
             Qcalc_qcqp_.setZero(3*N_qcqp,3*N_qcqp);
             Qcalc_qcqp_ = SUx.transpose()*Qxcalc_qcqp_*SUx + SUy.transpose()*Qycalc_qcqp_*SUy + SUz.transpose()*Qzcalc_qcqp_*SUz;
 
             gxcalc_qcqp_.setZero(3*N_qcqp,3*N_state);
-            gxcalc_qcqp_ = SUx.transpose()*(Ppu_qcqp_.transpose()*Qcpx*Qmat_qcqp_*Pps_qcqp_ + Pvu_qcqp_.transpose()*Qcvx*Qmat_qcqp_*Pvs_qcqp_ + Pau_qcqp_.transpose()*Qcax*Qmat_qcqp_*Pas_qcqp_)*ssx;
+            gxcalc_qcqp_ = SUx.transpose()*(Ppu_qcqp_.transpose()*Qcpx*Qmat_qcqp_*Pps_qcqp_ + Pvu_qcqp_.transpose()*Qcvx*Qvmat_qcqp*Pvs_qcqp_ + Pau_qcqp_.transpose()*Qcax*Qamat_qcqp*Pas_qcqp_)*ssx;
 
             gycalc_qcqp_.setZero(3*N_qcqp,3*N_state);
-            gycalc_qcqp_ = SUy.transpose()*(Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Pps_qcqp_ + Pvu_qcqp_.transpose()*Qcvy*Qmat_qcqp_*Pvs_qcqp_ + Pau_qcqp_.transpose()*Qcay*Qmat_qcqp_*Pas_qcqp_)*ssy;
+            gycalc_qcqp_ = SUy.transpose()*(Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Pps_qcqp_ + Pvu_qcqp_.transpose()*Qcvy*Qvmat_qcqp*Pvs_qcqp_ + Pau_qcqp_.transpose()*Qcay*Qamat_qcqp*Pas_qcqp_)*ssy;
 
             gzcalc_qcqp_.setZero(3*N_qcqp,3*N_state);
-            gzcalc_qcqp_ = SUz.transpose()*(Ppu_qcqp_.transpose()*Qcpz*Qmat_qcqp_*Pps_qcqp_ + Pvu_qcqp_.transpose()*Qcvz*Qmat_qcqp_*Pvs_qcqp_ + Pau_qcqp_.transpose()*Qcaz*Qmat_qcqp_*Pas_qcqp_)*ssz;
+            gzcalc_qcqp_ = SUz.transpose()*(Ppu_qcqp_.transpose()*Qcpz*Qmat_qcqp_*Pps_qcqp_ + Pvu_qcqp_.transpose()*Qcvz*Qvmat_qcqp*Pvs_qcqp_ + Pau_qcqp_.transpose()*Qcaz*Qamat_qcqp*Pas_qcqp_)*ssz;
         }
 
         cout << "Initialization of MPC QCQP SQP GUROBI Variable completed." << endl;
@@ -17382,6 +17697,12 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
     Eigen::VectorXd Z_y_max(N_qcqp);
     Eigen::VectorXd Z_y_min(N_qcqp);
 
+    zmp_max_x_.resize(N_qcqp); zmp_max_y_.resize(N_qcqp);
+    zmp_min_x_.resize(N_qcqp); zmp_min_y_.resize(N_qcqp);
+
+    zmp_max_x_.setZero(); zmp_max_y_.setZero();
+    zmp_min_x_.setZero(); zmp_min_y_.setZero();
+
     for(int i = 0; i < N_qcqp; i++)
     {
         C_x_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,0);
@@ -17416,19 +17737,41 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
         }
 
         Z_x_max(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) + 0.20;
-        Z_x_min(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) - 0.10;
+        Z_x_min(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) - 0.15;
 
         Z_y_max(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) + 0.15;
         Z_y_min(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) - 0.15;
+
+        zmp_max_x_(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) + zmp_x_max;
+        zmp_min_x_(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) - zmp_x_min;
+
+        zmp_max_y_(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) + zmp_y_max;
+        zmp_min_y_(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) - zmp_y_min;
     }
 
 
     if(walking_tick_e_qcqp_mpc_ < t_temp_)
     { Qcpy = 1e-0; Qcvy = 1e-1; Qcay = 1e-6; }
 
-    Qycalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Ppu_qcqp_ + Pvu_qcqp_.transpose()*Qcvy*Qmat_qcqp_*Pvu_qcqp_ + Pau_qcqp_.transpose()*Qcay*Qmat_qcqp_*Pau_qcqp_ + Rcy*Qmat_qcqp_;
+    Eigen::MatrixXd Qvmat_qcqp; Qvmat_qcqp.resize(N_qcqp,N_qcqp); Qvmat_qcqp.setZero();
+    Eigen::MatrixXd Qamat_qcqp; Qamat_qcqp.resize(N_qcqp,N_qcqp); Qamat_qcqp.setZero();
+    for(int i = 0; i < N_qcqp; i++)
+    {
+        if(i < 0.5*N_qcqp)
+        {
+            Qvmat_qcqp(i,i) = 1;
+            Qamat_qcqp(i,i) = 1;
+        }
+        if(i >= 0.5*N_qcqp)
+        {
+            Qvmat_qcqp(i,i) = 1;
+            Qamat_qcqp(i,i) = 1;
+        }
+    }
+
+    Qycalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Ppu_qcqp_ + Pvu_qcqp_.transpose()*Qcvy*Qvmat_qcqp*Pvu_qcqp_ + Pau_qcqp_.transpose()*Qcay*Qamat_qcqp*Pau_qcqp_ + Rcy*Qmat_qcqp_;
     Qcalc_qcqp_ = SUx.transpose()*Qxcalc_qcqp_*SUx + SUy.transpose()*Qycalc_qcqp_*SUy + SUz.transpose()*Qzcalc_qcqp_*SUz;
-    gycalc_qcqp_ = SUy.transpose()*(Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Pps_qcqp_ + Pvu_qcqp_.transpose()*Qcvy*Qmat_qcqp_*Pvs_qcqp_ + Pau_qcqp_.transpose()*Qcay*Qmat_qcqp_*Pas_qcqp_)*ssy;
+    gycalc_qcqp_ = SUy.transpose()*(Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Pps_qcqp_ + Pvu_qcqp_.transpose()*Qcvy*Qvmat_qcqp*Pvs_qcqp_ + Pau_qcqp_.transpose()*Qcay*Qamat_qcqp*Pas_qcqp_)*ssy;
 
     c_x = gxcalc_qcqp_*MPC_qcqp_sqp_gurobi_ - SUx.transpose()*Ppu_qcqp_.transpose()*Qcpx*Qmat_qcqp_*C_x_ref;
     c_y = gycalc_qcqp_*MPC_qcqp_sqp_gurobi_ - SUy.transpose()*Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*C_y_ref;
@@ -17442,7 +17785,590 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
 
     double constr_eps = 1e-5;
     const int sqp_iter_num_ = 2;
-    double leg_length_max = 0.745;
+    //double leg_length_max = 0.745;
+    double leg_length_max = param_leg_length_;
+    if(eng_int_ == 1) { leg_length_max = 1.0; }
+    //double leg_length_min = 0.32;
+    Eigen::MatrixXd leg_length(2, N_qcqp);
+    for(int sqp_iter = 0; sqp_iter < sqp_iter_num_; sqp_iter++)
+    {   
+        Eigen::VectorXd calc_lbA;
+        Eigen::MatrixXd calc_constr_del_;
+        Eigen::MatrixXd calc_constr_;
+
+        calc_lbA.setZero(8*N_qcqp); calc_lbA.array() = -1e3;
+        calc_constr_del_.setZero(8*N_qcqp, 3*N_qcqp);
+        calc_constr_.setZero(8*N_qcqp, 1);
+
+        /////////////////////////////////////////////////////////////////
+        //////////////////////////CoM MPC Calc//////////////////////////.
+        /////////////////////////////////////////////////////////////////
+        del_cgoal_ = 2*Qcalc_qcqp_*MPC_qcqp_sqp_u_ + c_p;
+
+        QCQP_mpc_.EnableEqualityCondition(equality_condition_eps_);
+        QCQP_mpc_.UpdateMinProblem(deldel_Cgoal_,del_cgoal_);
+        QCQP_mpc_.DeleteSubjectToAx();
+        QCQP_mpc_.DeleteSubjectToX();
+
+        for(int i = 0; i < N_qcqp; i++)
+        {
+            Const_Psi_zx = (Pau_qcqp_.row(i)*SUz).transpose()*Ppu_qcqp_.row(i)*SUx - (Ppu_qcqp_.row(i)*SUz).transpose()*Pau_qcqp_.row(i)*SUx;
+            Const_Pi_zx_u = 0.5*(Const_Psi_zx + Const_Psi_zx.transpose());
+            Const_Pi_zx_l = - Const_Pi_zx_u;
+
+            Const_Psi_zy = (Pau_qcqp_.row(i)*SUz).transpose()*Ppu_qcqp_.row(i)*SUy - (Ppu_qcqp_.row(i)*SUz).transpose()*Pau_qcqp_.row(i)*SUy;
+            Const_Pi_zy_u = 0.5*(Const_Psi_zy + Const_Psi_zy.transpose());
+            Const_Pi_zy_l = - Const_Pi_zy_u;
+
+
+            Const_pi_zx_calc = (Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0))*Pau_qcqp_.row(i)*SUz
+                              -(Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0))*Ppu_qcqp_.row(i)*SUz
+                              +(GRAVITY + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*Ppu_qcqp_.row(i)*SUx
+                              -(Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*Pau_qcqp_.row(i)*SUx;
+            Const_pi_zx_u_tp =  Const_pi_zx_calc - (Z_x_max(i)*Pau_qcqp_.row(i)*SUz);
+            Const_pi_zx_l_tp = -Const_pi_zx_calc + (Z_x_min(i)*Pau_qcqp_.row(i)*SUz);
+
+            Const_pi_zy_calc = (Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3))*Pau_qcqp_.row(i)*SUz
+                              -(Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3))*Ppu_qcqp_.row(i)*SUz
+                              +(GRAVITY + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*Ppu_qcqp_.row(i)*SUy
+                              -(Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*Pau_qcqp_.row(i)*SUy;
+            Const_pi_zy_u_tp =  Const_pi_zy_calc - (Z_y_max(i)*Pau_qcqp_.row(i)*SUz);
+            Const_pi_zy_l_tp = -Const_pi_zy_calc + (Z_y_min(i)*Pau_qcqp_.row(i)*SUz);
+
+
+            Const_ri_zx_calc(0,0) = (GRAVITY + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0))
+                                   -(0.0     + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*(0.0 + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0));
+            Const_ri_zx_u(0,0) = Const_ri_zx_calc(0,0) - (GRAVITY + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*Z_x_max(i);
+            Const_ri_zx_l(0,0) =-Const_ri_zx_calc(0,0) + (GRAVITY + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*Z_x_min(i);
+
+            Const_ri_zy_calc(0,0) = (GRAVITY + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3))
+                                   -(0.0     + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*(0.0 + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3));
+            Const_ri_zy_u(0,0) = Const_ri_zy_calc(0,0) - (GRAVITY + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*Z_y_max(i);
+            Const_ri_zy_l(0,0) =-Const_ri_zy_calc(0,0) + (GRAVITY + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*Z_y_min(i);
+
+
+            Const_del_hi_zx_u = 2*Const_Pi_zx_u*MPC_qcqp_sqp_u_ + Const_pi_zx_u_tp.transpose();
+            Const_del_hi_zx_l = 2*Const_Pi_zx_l*MPC_qcqp_sqp_u_ + Const_pi_zx_l_tp.transpose();
+
+            Const_del_hi_zy_u = 2*Const_Pi_zy_u*MPC_qcqp_sqp_u_ + Const_pi_zy_u_tp.transpose();
+            Const_del_hi_zy_l = 2*Const_Pi_zy_l*MPC_qcqp_sqp_u_ + Const_pi_zy_l_tp.transpose();
+
+
+            Const_hi_zx_u = MPC_qcqp_sqp_u_.transpose()*Const_Pi_zx_u*MPC_qcqp_sqp_u_ + Const_pi_zx_u_tp*MPC_qcqp_sqp_u_ + Const_ri_zx_u;
+            Const_hi_zx_l = MPC_qcqp_sqp_u_.transpose()*Const_Pi_zx_l*MPC_qcqp_sqp_u_ + Const_pi_zx_l_tp*MPC_qcqp_sqp_u_ + Const_ri_zx_l;
+
+            Const_hi_zy_u = MPC_qcqp_sqp_u_.transpose()*Const_Pi_zy_u*MPC_qcqp_sqp_u_ + Const_pi_zy_u_tp*MPC_qcqp_sqp_u_ + Const_ri_zy_u;
+            Const_hi_zy_l = MPC_qcqp_sqp_u_.transpose()*Const_Pi_zy_l*MPC_qcqp_sqp_u_ + Const_pi_zy_l_tp*MPC_qcqp_sqp_u_ + Const_ri_zy_l;    
+                
+
+            calc_constr_del_.row(0*N_qcqp + i) = Const_del_hi_zx_u.transpose();
+            calc_constr_del_.row(1*N_qcqp + i) = Const_del_hi_zx_l.transpose();
+            calc_constr_del_.row(2*N_qcqp + i) = Const_del_hi_zy_u.transpose();
+            calc_constr_del_.row(3*N_qcqp + i) = Const_del_hi_zy_l.transpose();
+
+
+            calc_constr_.block<1,1>(0*N_qcqp + i,0) = -Const_hi_zx_u;
+            calc_constr_.block<1,1>(1*N_qcqp + i,0) = -Const_hi_zx_l;
+            calc_constr_.block<1,1>(2*N_qcqp + i,0) = -Const_hi_zy_u;
+            calc_constr_.block<1,1>(3*N_qcqp + i,0) = -Const_hi_zy_l;
+
+            //ll
+            Const_Psi_ll = (Ppu_qcqp_.row(i)*SUx).transpose()*Ppu_qcqp_.row(i)*SUx
+                          +(Ppu_qcqp_.row(i)*SUy).transpose()*Ppu_qcqp_.row(i)*SUy
+                          +(Ppu_qcqp_.row(i)*SUz).transpose()*Ppu_qcqp_.row(i)*SUz;
+
+            Const_Pi_ll_u = 0.5*(Const_Psi_ll + Const_Psi_ll.transpose());
+            //Const_Pi_ll_l = - Const_Pi_ll_u;
+
+            //left leg length
+            Const_pi_ll_u_tp = 2*(Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0) - lF_x_ref(i))*Ppu_qcqp_.row(i)*SUx
+                              +2*(Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3) - lF_y_ref(i))*Ppu_qcqp_.row(i)*SUy
+                              +2*(Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6) - lF_z_ref(i))*Ppu_qcqp_.row(i)*SUz;
+            //Const_pi_ll_l_tp = - Const_pi_ll_u_tp;
+            
+            double leg_length_calc = DyrosMath::cubic(i,0,N_qcqp,leg_length_max, 1.0*leg_length_max, 0.0, 0.0);
+
+            Const_ri_ll_calc(0,0) = (0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0) - lF_x_ref(i))*(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0) - lF_x_ref(i))
+                                   +(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3) - lF_y_ref(i))*(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3) - lF_y_ref(i))
+                                   +(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6) - lF_z_ref(i))*(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6) - lF_z_ref(i));
+            //Const_ri_ll_u(0,0) =   Const_ri_ll_calc(0,0) - leg_length_max*leg_length_max;
+            Const_ri_ll_u(0,0) =   Const_ri_ll_calc(0,0) - leg_length_calc*leg_length_calc;
+            //Const_ri_ll_l(0,0) = - Const_ri_ll_calc(0,0) + leg_length_min*leg_length_min;
+                
+            Const_del_hi_ll_u = 2*Const_Pi_ll_u*MPC_qcqp_sqp_u_ + Const_pi_ll_u_tp.transpose();
+            //Const_del_hi_ll_l = 2*Const_Pi_ll_l*MPC_qcqp_sqp_u_ + Const_pi_ll_l_tp.transpose();
+                
+            Const_hi_ll_u = MPC_qcqp_sqp_u_.transpose()*Const_Pi_ll_u*MPC_qcqp_sqp_u_ + Const_pi_ll_u_tp*MPC_qcqp_sqp_u_ + Const_ri_ll_u;
+            //Const_hi_ll_l = MPC_qcqp_sqp_u_.transpose()*Const_Pi_ll_l*MPC_qcqp_sqp_u_ + Const_pi_ll_l_tp*MPC_qcqp_sqp_u_ + Const_ri_ll_l;
+
+            if(i <= 0.2*N_qcqp)
+            {
+                calc_constr_del_.row(4*N_qcqp + i) = Const_del_hi_ll_u.transpose();
+                calc_constr_.block<1,1>(4*N_qcqp + i,0) = - Const_hi_ll_u;
+            }
+                
+            //calc_constr_del_.row(5*N_qcqp + i) = Const_del_hi_ll_l.transpose();
+            //calc_constr_.block<1,1>(5*N_qcqp + i,0) = - Const_hi_ll_l;
+
+
+            //right leg length
+            Const_pi_ll_u_tp = 2*(Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0) - rF_x_ref(i))*Ppu_qcqp_.row(i)*SUx
+                              +2*(Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3) - rF_y_ref(i))*Ppu_qcqp_.row(i)*SUy
+                              +2*(Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6) - rF_z_ref(i))*Ppu_qcqp_.row(i)*SUz;
+            //Const_pi_ll_l_tp = - Const_pi_ll_u_tp;
+                
+            Const_ri_ll_calc(0,0) = (0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0) - rF_x_ref(i))*(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0) - rF_x_ref(i))
+                                   +(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3) - rF_y_ref(i))*(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3) - rF_y_ref(i))
+                                   +(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6) - rF_z_ref(i))*(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6) - rF_z_ref(i));
+            //Const_ri_ll_u(0,0) =   Const_ri_ll_calc(0,0) - leg_length_max*leg_length_max;
+            Const_ri_ll_u(0,0) =   Const_ri_ll_calc(0,0) - leg_length_calc*leg_length_calc;
+            //Const_ri_ll_l(0,0) = - Const_ri_ll_calc(0,0) + leg_length_min*leg_length_min;
+             
+            Const_del_hi_ll_u = 2*Const_Pi_ll_u*MPC_qcqp_sqp_u_ + Const_pi_ll_u_tp.transpose();
+            //Const_del_hi_ll_l = 2*Const_Pi_ll_l*MPC_qcqp_sqp_u_ + Const_pi_ll_l_tp.transpose();
+                
+            Const_hi_ll_u = MPC_qcqp_sqp_u_.transpose()*Const_Pi_ll_u*MPC_qcqp_sqp_u_ + Const_pi_ll_u_tp*MPC_qcqp_sqp_u_ + Const_ri_ll_u;
+            //Const_hi_ll_l = MPC_qcqp_sqp_u_.transpose()*Const_Pi_ll_l*MPC_qcqp_sqp_u_ + Const_pi_ll_l_tp*MPC_qcqp_sqp_u_ + Const_ri_ll_l;
+
+            if(i <= 0.2*N_qcqp)
+            {
+            calc_constr_del_.row(6*N_qcqp + i) = Const_del_hi_ll_u.transpose();
+            calc_constr_.block<1,1>(6*N_qcqp + i,0) = - Const_hi_ll_u;
+            }
+
+            //calc_constr_del_.row(7*N_qcqp + i) = Const_del_hi_ll_l.transpose();
+            //calc_constr_.block<1,1>(7*N_qcqp + i,0) = - Const_hi_ll_l;
+        }
+
+        QCQP_mpc_.UpdateSubjectToAx(calc_constr_del_, calc_lbA, calc_constr_);
+
+        if(QCQP_mpc_.SolveQPoases(200, del_cu_))
+        {
+            if((walking_tick_e_qcqp_mpc_ - 1000/int(mpc_qcqp_freq) + 1)%4000 == 0)
+            { cout << "QCQP CoM MPC Solved" << endl;; }
+
+            MPC_qcqp_sqp_u_ = MPC_qcqp_sqp_u_ + del_cu_; 
+
+            if(sqp_iter == sqp_iter_num_ - 1)
+            {
+                MPC_qcqp_input_ << MPC_qcqp_sqp_u_(0*N_qcqp), MPC_qcqp_sqp_u_(1*N_qcqp), MPC_qcqp_sqp_u_(2*N_qcqp);
+                MPC_qcqp_sqp_gurobi_p_ = MPC_qcqp_sqp_gurobi_;
+                MPC_qcqp_sqp_gurobi_ = calc_A_qcqp_*MPC_qcqp_sqp_gurobi_ + calc_B_qcqp_*MPC_qcqp_input_;
+
+                MPC_qcqp_sqp_gurobi_zmp_(0) = MPC_qcqp_sqp_gurobi_(0) - MPC_qcqp_sqp_gurobi_(6)*MPC_qcqp_sqp_gurobi_(2)/(GRAVITY + MPC_qcqp_sqp_gurobi_(8));
+                MPC_qcqp_sqp_gurobi_zmp_(1) = MPC_qcqp_sqp_gurobi_(3) - MPC_qcqp_sqp_gurobi_(6)*MPC_qcqp_sqp_gurobi_(5)/(GRAVITY + MPC_qcqp_sqp_gurobi_(8));    
+
+                //send mpc data
+                if(atb_mpc_qcqp_update_ == false)
+                {
+                    atb_mpc_qcqp_update_ = true;
+
+                    MPC_qcqp_sqp_gurobi_p_thread_ = MPC_qcqp_sqp_gurobi_p_;
+                    MPC_qcqp_sqp_gurobi_thread_ = MPC_qcqp_sqp_gurobi_;
+
+                    MPC_qcqp_sqp_gurobi_u_thread_ = MPC_qcqp_input_;
+
+                    current_step_num_qcqp_thread2_ = current_step_num_qcqp_mpc_;
+                    atb_mpc_qcqp_update_ = false;
+                }
+                mpc_qcqp_update_ = true;
+
+                MPC_qcqp_sqp_gurobi_com_prev_p_ = MPC_qcqp_sqp_gurobi_com_prev_;
+
+                MPC_qcqp_sqp_gurobi_com_prev_.col(0) = MPC_qcqp_sqp_gurobi_;
+
+                for(int i = 0; i < N_qcqp; i++)
+                {
+                    if(i > 0)
+                    {
+                        MPC_qcqp_input_ << MPC_qcqp_sqp_u_(0*N_qcqp + i), MPC_qcqp_sqp_u_(1*N_qcqp + i), MPC_qcqp_sqp_u_(2*N_qcqp + i);
+                        MPC_qcqp_sqp_gurobi_com_prev_.col(i) = calc_A_qcqp_*MPC_qcqp_sqp_gurobi_com_prev_.col(i-1) + calc_B_qcqp_*MPC_qcqp_input_;
+                    }
+                    leg_length(0,i) = sqrt(pow(MPC_qcqp_sqp_gurobi_com_prev_(0,i) - lF_x_ref(i),2) + pow(MPC_qcqp_sqp_gurobi_com_prev_(3,i) - lF_y_ref(i),2) + pow(MPC_qcqp_sqp_gurobi_com_prev_(6,i) - lF_z_ref(i),2));
+                    leg_length(1,i) = sqrt(pow(MPC_qcqp_sqp_gurobi_com_prev_(0,i) - rF_x_ref(i),2) + pow(MPC_qcqp_sqp_gurobi_com_prev_(3,i) - rF_y_ref(i),2) + pow(MPC_qcqp_sqp_gurobi_com_prev_(6,i) - rF_z_ref(i),2));
+                }
+            }
+        }
+        else
+        { 
+            cout << "QCQP CoM MPC Not Solved" << endl;
+            cout << int(walking_tick_e_qcqp_mpc_ + 101)/200 << endl;
+            MPC_qcqp_sqp_u_ = MPC_qcqp_sqp_u_;
+
+            if(sqp_iter == sqp_iter_num_ - 1)
+            {
+                MPC_qcqp_input_ << MPC_qcqp_sqp_u_(0*N_qcqp), MPC_qcqp_sqp_u_(1*N_qcqp), MPC_qcqp_sqp_u_(2*N_qcqp);
+                MPC_qcqp_sqp_gurobi_p_ = MPC_qcqp_sqp_gurobi_;
+                MPC_qcqp_sqp_gurobi_ = calc_A_qcqp_*MPC_qcqp_sqp_gurobi_ + calc_B_qcqp_*MPC_qcqp_input_;
+
+                MPC_qcqp_sqp_gurobi_zmp_(0) = MPC_qcqp_sqp_gurobi_(0) - MPC_qcqp_sqp_gurobi_(6)*MPC_qcqp_sqp_gurobi_(2)/(GRAVITY + MPC_qcqp_sqp_gurobi_(8));
+                MPC_qcqp_sqp_gurobi_zmp_(1) = MPC_qcqp_sqp_gurobi_(3) - MPC_qcqp_sqp_gurobi_(6)*MPC_qcqp_sqp_gurobi_(5)/(GRAVITY + MPC_qcqp_sqp_gurobi_(8));    
+
+                //send mpc data
+                if(atb_mpc_qcqp_update_ == false)
+                {
+                    atb_mpc_qcqp_update_ = true;
+
+                    MPC_qcqp_sqp_gurobi_p_thread_ = MPC_qcqp_sqp_gurobi_p_;
+                    MPC_qcqp_sqp_gurobi_thread_ = MPC_qcqp_sqp_gurobi_;
+
+                    current_step_num_qcqp_thread2_ = current_step_num_qcqp_mpc_;
+                    atb_mpc_qcqp_update_ = false;
+                }
+                mpc_qcqp_update_ = true;
+
+                MPC_qcqp_sqp_gurobi_com_prev_p_ = MPC_qcqp_sqp_gurobi_com_prev_;
+
+                MPC_qcqp_sqp_gurobi_com_prev_.col(0) = MPC_qcqp_sqp_gurobi_;
+
+                for(int i = 0; i < N_qcqp; i++)
+                {
+                    if(i > 0)
+                    {
+                        MPC_qcqp_input_ << MPC_qcqp_sqp_u_(0*N_qcqp + i), MPC_qcqp_sqp_u_(1*N_qcqp + i), MPC_qcqp_sqp_u_(2*N_qcqp + i);
+                        MPC_qcqp_sqp_gurobi_com_prev_.col(i) = calc_A_qcqp_*MPC_qcqp_sqp_gurobi_com_prev_.col(i-1) + calc_B_qcqp_*MPC_qcqp_input_;
+                    }
+                }
+            }
+        }
+
+        //cout << "sqp iter: " << sqp_iter + 1 << endl;
+    }
+
+    if(walking_tick_e_qcqp_mpc_ < 2000/thread3_hz_)
+    { MPC_qcqp_sqp_gurobi_com_prev_p_ = MPC_qcqp_sqp_gurobi_com_prev_; }
+
+    double lleg_length = sqrt(pow(MPC_qcqp_sqp_gurobi_(0) - lF_x_ref(0),2) + pow(MPC_qcqp_sqp_gurobi_(3) - lF_y_ref(0),2) + pow(MPC_qcqp_sqp_gurobi_(6) - lF_z_ref(0),2));
+    double rleg_length = sqrt(pow(MPC_qcqp_sqp_gurobi_(0) - rF_x_ref(0),2) + pow(MPC_qcqp_sqp_gurobi_(3) - rF_y_ref(0),2) + pow(MPC_qcqp_sqp_gurobi_(6) - rF_z_ref(0),2));
+    //cout << endl;
+    e_qcqp_gurobi_graph << MPC_qcqp_sqp_gurobi_(0)     << "," << MPC_qcqp_sqp_gurobi_(3)     << "," << MPC_qcqp_sqp_gurobi_(6) << "," 
+                        << C_x_ref(0)                  << "," << C_y_ref(0)                  << "," << C_z_ref(0)              << "," 
+                        << MPC_qcqp_sqp_gurobi_zmp_(0) << "," << MPC_qcqp_sqp_gurobi_zmp_(1) << "," << 0                       << ","
+                        << Z_x_max(0)                  << "," << Z_y_max(0)                  << "," << 0                       << ","
+                        << Z_x_min(0)                  << "," << Z_y_min(0)                  << "," << 0                       << "," 
+                        << com_measured_mpc_(0)        << "," << com_measured_mpc_(1)        << "," << com_measured_mpc_(2)    << ","
+                        << lF_x_ref(0)                 << "," << lF_y_ref(0)                 << "," << lF_z_ref(0)             << ","
+                        << rF_x_ref(0)                 << "," << rF_y_ref(0)                 << "," << rF_z_ref(0)             << ","
+                        << lleg_length                 << "," << rleg_length                 << "," << 0                       << ","
+                        << endl;
+}
+
+void AvatarController::comGenerator_MPC_vrp(double mpc_qcqp_freq, double dt_qcqp_, double preview_window_qcqp_, int MPC_synchro_hz_)
+{
+    double Qcpx, Qcvx, Qcax, Qcpy, Qcvy, Qcay, Qcpz, Qcvz, Qcaz, Rcx, Rcy, Rcz;
+    //Qcpx = 1e-1;        Qcvx = 1e-2;        Qcax = 1e-6;        Rcx = 1e-6;
+    Qcpx = 1e-1;        Qcvx = 1e-2;        Qcax = 1e-6;        Rcx = 1e-6;
+    //Qcpy = 5e-2;        Qcvy = 5e-3;        Qcay = 0e-0;        Rcy = 1e-6;
+    Qcpy = 0e-3;        Qcvy = 5e-3;        Qcay = 0e-0;        Rcy = 1e-6;
+    Qcpz = 1e-0;        Qcvz = 1e-1;        Qcaz = 1e-4;        Rcz = 1e-6;
+
+    double Qvrpx, Qvrpy, Qvrpz;
+    Qvrpx = 0e-1; Qvrpy = 5e-2; Qvrpz = 0e-1;
+
+    int mpc_tick = walking_tick_e_qcqp_mpc_ - com_start_tick_e_qcqp_mpc_;
+    const int N_qcqp = preview_window_qcqp_*mpc_qcqp_freq;
+    const int N_state = 3;
+    static int MPC_first_loop = 0;
+    double mpc_var = 1;
+
+    if(MPC_first_loop == 0)
+    {
+        cout << "Initialization of MPC QCQP SQP GUROBI." << endl;
+        if(mpc_var)
+        {
+            A_qcqp_.resize(N_state,N_state);
+            A_qcqp_ << 1, dt_qcqp_/1, dt_qcqp_*dt_qcqp_/2,
+                       0,          1,          dt_qcqp_/1,
+                       0,          0,                  1;
+
+            calc_A_qcqp_.resize(3*N_state,3*N_state);
+            calc_A_qcqp_ << 1*A_qcqp_, 0*A_qcqp_, 0*A_qcqp_,
+                            0*A_qcqp_, 1*A_qcqp_, 0*A_qcqp_,
+                            0*A_qcqp_, 0*A_qcqp_, 1*A_qcqp_;
+
+            B_qcqp_.resize(N_state,1);
+            B_qcqp_ << dt_qcqp_*dt_qcqp_*dt_qcqp_/6,
+                                dt_qcqp_*dt_qcqp_/2,
+                                         dt_qcqp_/1;
+            
+            calc_B_qcqp_.resize(3*N_state,3);
+            calc_B_qcqp_ << 1*B_qcqp_, 0*B_qcqp_, 0*B_qcqp_,
+                            0*B_qcqp_, 1*B_qcqp_, 0*B_qcqp_,
+                            0*B_qcqp_, 0*B_qcqp_, 1*B_qcqp_;
+
+            Cp_qcqp_.resize(1,N_state);
+            Cv_qcqp_.resize(1,N_state);
+            Ca_qcqp_.resize(1,N_state);
+            Cvrp_qcqp_.resize(1,N_state);
+
+            Cp_qcqp_ << 1, 0, 0;
+            Cv_qcqp_ << 0, 1, 0;
+            Ca_qcqp_ << 0, 0, 1;
+            Cvrp_qcqp_ << 1, 0, -zc_mj_/GRAVITY;
+
+            Pps_qcqp_.resize(N_qcqp,N_state);
+            Pvs_qcqp_.resize(N_qcqp,N_state);
+            Pas_qcqp_.resize(N_qcqp,N_state);
+            Pvrps_qcqp_.resize(N_qcqp,N_state);
+
+            Eigen::MatrixXd Ps_calc;
+            Ps_calc.resize(N_state,N_state);
+            Ps_calc = A_qcqp_;
+        
+            Ppu_qcqp_.setZero(N_qcqp, N_qcqp);
+            Pvu_qcqp_.setZero(N_qcqp, N_qcqp);
+            Pau_qcqp_.setZero(N_qcqp, N_qcqp);
+            Pvrpu_qcqp_.setZero(N_qcqp, N_qcqp);
+        
+            Eigen::MatrixXd Pu_calc;
+            Pu_calc.setZero(N_state,N_qcqp);
+        
+            for(int i = 0; i < N_qcqp; i++)
+            {
+                Pps_qcqp_.row(i) = Cp_qcqp_*Ps_calc;
+                Pvs_qcqp_.row(i) = Cv_qcqp_*Ps_calc;
+                Pas_qcqp_.row(i) = Ca_qcqp_*Ps_calc;
+                Pvrps_qcqp_.row(i) = Cvrp_qcqp_*Ps_calc;
+                Ps_calc = Ps_calc*A_qcqp_;
+
+                Pu_calc.col(i) = B_qcqp_;
+                Ppu_qcqp_.row(i) = Cp_qcqp_*Pu_calc;
+                Pvu_qcqp_.row(i) = Cv_qcqp_*Pu_calc;
+                Pau_qcqp_.row(i) = Ca_qcqp_*Pu_calc;
+                Pvrpu_qcqp_.row(i) = Cvrp_qcqp_*Pu_calc;
+                Pu_calc = A_qcqp_*Pu_calc;
+            }
+
+            SUx.setZero(N_qcqp,3*N_qcqp);   SUx << MatrixXd::Identity(N_qcqp,N_qcqp), MatrixXd::Zero(N_qcqp,N_qcqp), MatrixXd::Zero(N_qcqp,N_qcqp);
+            SUy.setZero(N_qcqp,3*N_qcqp);   SUy << MatrixXd::Zero(N_qcqp,N_qcqp), MatrixXd::Identity(N_qcqp,N_qcqp), MatrixXd::Zero(N_qcqp,N_qcqp);
+            SUz.setZero(N_qcqp,3*N_qcqp);   SUz << MatrixXd::Zero(N_qcqp,N_qcqp), MatrixXd::Zero(N_qcqp,N_qcqp), MatrixXd::Identity(N_qcqp,N_qcqp);
+
+            ssx.setZero(N_state,3*N_state); ssx << MatrixXd::Identity(N_state,N_state), MatrixXd::Zero(N_state,N_state), MatrixXd::Zero(N_state,N_state);
+            ssy.setZero(N_state,3*N_state); ssy << MatrixXd::Zero(N_state,N_state), MatrixXd::Identity(N_state,N_state), MatrixXd::Zero(N_state,N_state);
+            ssz.setZero(N_state,3*N_state); ssz << MatrixXd::Zero(N_state,N_state), MatrixXd::Zero(N_state,N_state), MatrixXd::Identity(N_state,N_state);
+
+            Qmat_qcqp_.resize(N_qcqp,N_qcqp);
+            Qmat_qcqp_.setIdentity();
+
+            Qxcalc_qcqp_.setZero(N_qcqp, N_qcqp);
+            Qxcalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpx*Qmat_qcqp_*Ppu_qcqp_ 
+                         + Pvu_qcqp_.transpose()*Qcvx*Qmat_qcqp_*Pvu_qcqp_ 
+                         + Pau_qcqp_.transpose()*Qcax*Qmat_qcqp_*Pau_qcqp_ 
+                         + Pvrpu_qcqp_.transpose()*Qvrpx*Qmat_qcqp_*Pvrpu_qcqp_
+                         + Rcx*Qmat_qcqp_;
+
+            Qycalc_qcqp_.setZero(N_qcqp, N_qcqp);
+            Qycalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Ppu_qcqp_ 
+                         + Pvu_qcqp_.transpose()*Qcvy*Qmat_qcqp_*Pvu_qcqp_ 
+                         + Pau_qcqp_.transpose()*Qcay*Qmat_qcqp_*Pau_qcqp_ 
+                         + Pvrpu_qcqp_.transpose()*Qvrpy*Qmat_qcqp_*Pvrpu_qcqp_
+                         + Rcy*Qmat_qcqp_;
+
+            Qzcalc_qcqp_.setZero(N_qcqp, N_qcqp);
+            Qzcalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpz*Qmat_qcqp_*Ppu_qcqp_ 
+                         + Pvu_qcqp_.transpose()*Qcvz*Qmat_qcqp_*Pvu_qcqp_ 
+                         + Pau_qcqp_.transpose()*Qcaz*Qmat_qcqp_*Pau_qcqp_ 
+                         + Pvrpu_qcqp_.transpose()*Qvrpz*Qmat_qcqp_*Pvrpu_qcqp_
+                         + Rcz*Qmat_qcqp_;
+
+            Qcalc_qcqp_.setZero(3*N_qcqp,3*N_qcqp);
+            Qcalc_qcqp_ = SUx.transpose()*Qxcalc_qcqp_*SUx + SUy.transpose()*Qycalc_qcqp_*SUy + SUz.transpose()*Qzcalc_qcqp_*SUz;
+
+            gxcalc_qcqp_.setZero(3*N_qcqp,3*N_state);
+            gxcalc_qcqp_ = SUx.transpose()*
+                            (Ppu_qcqp_.transpose()*Qcpx*Qmat_qcqp_*Pps_qcqp_ 
+                           + Pvu_qcqp_.transpose()*Qcvx*Qmat_qcqp_*Pvs_qcqp_ 
+                           + Pau_qcqp_.transpose()*Qcax*Qmat_qcqp_*Pas_qcqp_
+                           + Pvrpu_qcqp_.transpose()*Qvrpx*Qmat_qcqp_*Pvrps_qcqp_
+                            )*ssx;
+
+            gycalc_qcqp_.setZero(3*N_qcqp,3*N_state);
+            gycalc_qcqp_ = SUy.transpose()*
+                            (Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Pps_qcqp_ 
+                           + Pvu_qcqp_.transpose()*Qcvy*Qmat_qcqp_*Pvs_qcqp_ 
+                           + Pau_qcqp_.transpose()*Qcay*Qmat_qcqp_*Pas_qcqp_
+                           + Pvrpu_qcqp_.transpose()*Qvrpy*Qmat_qcqp_*Pvrps_qcqp_
+                            )*ssy;
+
+            gzcalc_qcqp_.setZero(3*N_qcqp,3*N_state);
+            gzcalc_qcqp_ = SUz.transpose()*
+                            (Ppu_qcqp_.transpose()*Qcpz*Qmat_qcqp_*Pps_qcqp_ 
+                           + Pvu_qcqp_.transpose()*Qcvz*Qmat_qcqp_*Pvs_qcqp_ 
+                           + Pau_qcqp_.transpose()*Qcaz*Qmat_qcqp_*Pas_qcqp_
+                           + Pvrpu_qcqp_.transpose()*Qvrpz*Qmat_qcqp_*Pvrps_qcqp_
+                            )*ssz;
+        }
+
+        cout << "Initialization of MPC QCQP SQP GUROBI Variable completed." << endl;
+        //Constraint
+        //zmp
+        Const_Psi_zx.setZero(3*N_qcqp,3*N_qcqp);   Const_Psi_zy.setZero(3*N_qcqp,3*N_qcqp);
+        Const_Pi_zx_u.setZero(3*N_qcqp,3*N_qcqp);  Const_Pi_zy_u.setZero(3*N_qcqp,3*N_qcqp);
+        Const_Pi_zx_l.setZero(3*N_qcqp,3*N_qcqp);  Const_Pi_zy_l.setZero(3*N_qcqp,3*N_qcqp);
+        
+        Const_pi_zx_calc.setZero(1,3*N_qcqp);      Const_pi_zy_calc.setZero(1,3*N_qcqp);
+        Const_pi_zx_u_tp.setZero(1,3*N_qcqp);      Const_pi_zy_u_tp.setZero(1,3*N_qcqp);
+        Const_pi_zx_l_tp.setZero(1,3*N_qcqp);      Const_pi_zy_l_tp.setZero(1,3*N_qcqp);
+        
+        Const_ri_zx_calc.setZero(1,1);             Const_ri_zy_calc.setZero(1,1);
+        Const_ri_zx_u.setZero(1,1);                Const_ri_zy_u.setZero(1,1);
+        Const_ri_zx_l.setZero(1,1);                Const_ri_zy_l.setZero(1,1);
+
+        Const_del_hi_zx_u.setZero(3*N_qcqp,1);     Const_del_hi_zy_u.setZero(3*N_qcqp,1);
+        Const_del_hi_zx_l.setZero(3*N_qcqp,1);     Const_del_hi_zy_l.setZero(3*N_qcqp,1);
+
+        Const_hi_zx_u.setZero(1,1);                Const_hi_zy_u.setZero(1,1);
+        Const_hi_zx_l.setZero(1,1);                Const_hi_zy_l.setZero(1,1);
+
+        Const_del_zmp_.setZero(4*N_qcqp,3*N_qcqp);
+        Const_zmp_.setZero(4*N_qcqp,1);
+
+        Const_Psi_ll.setZero(3*N_qcqp,3*N_qcqp);
+        Const_Pi_ll_u.setZero(3*N_qcqp,3*N_qcqp);
+        Const_Pi_ll_l.setZero(3*N_qcqp,3*N_qcqp);
+
+        Const_pi_ll_calc.setZero(1,3*N_qcqp);
+        Const_pi_ll_u_tp.setZero(1,3*N_qcqp);
+        Const_pi_ll_l_tp.setZero(1,3*N_qcqp);
+        
+        Const_ri_ll_calc.setZero(1,1);
+        Const_ri_ll_u.setZero(1,1);
+        Const_ri_ll_l.setZero(1,1);
+
+        Const_del_hi_ll_u.setZero(3*N_qcqp,1);
+        Const_del_hi_ll_l.setZero(3*N_qcqp,1);
+
+        Const_hi_ll_u.setZero(1,1);
+        Const_hi_ll_l.setZero(1,1);
+
+        Const_del_ll_.setZero(4*N_qcqp,3*N_qcqp);
+        Const_ll_.setZero(4*N_qcqp,1);
+
+        cout << "Initialization of MPC QCQP SQP GUROBI Constraints completed." << endl;
+
+        QCQP_mpc_.InitializeProblemSize(3*N_qcqp, 8*N_qcqp);
+
+        MPC_qcqp_sqp_u_.setZero(3*N_qcqp);
+        MPC_qcqp_input_.setZero(N_state);
+
+        deldel_Cgoal_.resize(3*N_qcqp,3*N_qcqp);
+        del_cgoal_.resize(3*N_qcqp,1);
+
+        MPC_qcqp_sqp_gurobi_com_prev_.setZero(9,N_qcqp);
+        MPC_qcqp_sqp_gurobi_com_prev_p_.setZero(9,N_qcqp);
+
+        MPC_first_loop = 1;
+        cout << "Initialization of MPC QCQP SQP GUROBI is completed." << endl;
+    }
+
+    Eigen::MatrixXd c_x(3*N_qcqp,1);
+    Eigen::MatrixXd c_y(3*N_qcqp,1);
+    Eigen::MatrixXd c_z(3*N_qcqp,1);
+    Eigen::MatrixXd c_p(3*N_qcqp,1);
+
+    Eigen::VectorXd C_x_ref(N_qcqp); Eigen::VectorXd lF_x_ref(N_qcqp); Eigen::VectorXd rF_x_ref(N_qcqp);
+    Eigen::VectorXd C_y_ref(N_qcqp); Eigen::VectorXd lF_y_ref(N_qcqp); Eigen::VectorXd rF_y_ref(N_qcqp);
+    Eigen::VectorXd C_z_ref(N_qcqp); Eigen::VectorXd lF_z_ref(N_qcqp); Eigen::VectorXd rF_z_ref(N_qcqp);
+
+    Eigen::VectorXd V_x_ref(N_qcqp);
+    Eigen::VectorXd V_y_ref(N_qcqp);
+    Eigen::VectorXd V_z_ref(N_qcqp);
+
+    Eigen::VectorXd Z_x_max(N_qcqp);
+    Eigen::VectorXd Z_x_min(N_qcqp);
+    Eigen::VectorXd Z_y_max(N_qcqp);
+    Eigen::VectorXd Z_y_min(N_qcqp);
+
+    zmp_max_x_.resize(N_qcqp); zmp_max_y_.resize(N_qcqp);
+    zmp_min_x_.resize(N_qcqp); zmp_min_y_.resize(N_qcqp);
+
+    zmp_max_x_.setZero(); zmp_max_y_.setZero();
+    zmp_min_x_.setZero(); zmp_min_y_.setZero();
+
+    for(int i = 0; i < N_qcqp; i++)
+    {
+        C_x_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,0);
+        C_y_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,1);
+        C_z_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,2);
+
+        V_x_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,0);
+        V_y_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,1);
+        V_z_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,2);
+
+        lF_x_ref(i) = lfoot_prev_mpc_(mpc_tick + MPC_synchro_hz_*i,0);
+        lF_y_ref(i) = lfoot_prev_mpc_(mpc_tick + MPC_synchro_hz_*i,1);
+        lF_z_ref(i) = lfoot_prev_mpc_(mpc_tick + MPC_synchro_hz_*i,2);
+
+        rF_x_ref(i) = rfoot_prev_mpc_(mpc_tick + MPC_synchro_hz_*i,0);
+        rF_y_ref(i) = rfoot_prev_mpc_(mpc_tick + MPC_synchro_hz_*i,1);
+        rF_z_ref(i) = rfoot_prev_mpc_(mpc_tick + MPC_synchro_hz_*i,2);
+
+        Z_x_max(i) = max_zmp_e_mpc_(mpc_tick + MPC_synchro_hz_*i,0) - zmp_x_max + 0.20;
+        Z_x_min(i) = min_zmp_e_mpc_(mpc_tick + MPC_synchro_hz_*i,0) + zmp_x_min - 0.10;
+
+        Z_y_max(i) = max_zmp_e_mpc_(mpc_tick + MPC_synchro_hz_*i,1) - zmp_y_max + 0.15;
+        Z_y_min(i) = min_zmp_e_mpc_(mpc_tick + MPC_synchro_hz_*i,1) + zmp_y_min - 0.15;
+
+        if(mpc_tick + MPC_synchro_hz_*i < t_double1_ + t_rest_init_)
+        { 
+            if(MPC_dcm_delf_fix_p_(1) < 0.0)
+            { Z_y_max(i) -= MPC_dcm_delf_fix_p_(1); }
+            else
+            { Z_y_min(i) -= MPC_dcm_delf_fix_p_(1); }
+
+            if(MPC_dcm_delf_fix_p_(0) < 0.0)
+            { Z_x_max(i) -= MPC_dcm_delf_fix_p_(0); }
+            else
+            { Z_x_min(i) -= MPC_dcm_delf_fix_p_(0); }
+        }
+
+        Z_x_max(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) + 0.20;
+        Z_x_min(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) - 0.15;
+
+        Z_y_max(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) + 0.15;
+        Z_y_min(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) - 0.15;
+
+        zmp_max_x_(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) + zmp_x_max;
+        zmp_min_x_(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) - zmp_x_min;
+
+        zmp_max_y_(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) + zmp_y_max;
+        zmp_min_y_(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) - zmp_y_min;
+    }
+
+
+    if(walking_tick_e_qcqp_mpc_ < t_temp_)
+    { Qcpy = 1e-0; Qcvy = 1e-1; Qcay = 1e-6; }
+
+    Qycalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Ppu_qcqp_ 
+                 + Pvu_qcqp_.transpose()*Qcvy*Qmat_qcqp_*Pvu_qcqp_ 
+                 + Pau_qcqp_.transpose()*Qcay*Qmat_qcqp_*Pau_qcqp_ 
+                 + Pvrpu_qcqp_.transpose()*Qvrpy*Qmat_qcqp_*Pvrpu_qcqp_
+                 + Rcy*Qmat_qcqp_;
+
+    Qcalc_qcqp_ = SUx.transpose()*Qxcalc_qcqp_*SUx + SUy.transpose()*Qycalc_qcqp_*SUy + SUz.transpose()*Qzcalc_qcqp_*SUz;
+
+    gycalc_qcqp_ = SUy.transpose()*
+                                (Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Pps_qcqp_ 
+                               + Pvu_qcqp_.transpose()*Qcvy*Qmat_qcqp_*Pvs_qcqp_ 
+                               + Pau_qcqp_.transpose()*Qcay*Qmat_qcqp_*Pas_qcqp_
+                               + Pvrpu_qcqp_.transpose()*Qvrpy*Qmat_qcqp_*Pvrps_qcqp_
+                               )*ssy;
+
+    c_x = gxcalc_qcqp_*MPC_qcqp_sqp_gurobi_ - SUx.transpose()*Ppu_qcqp_.transpose()*Qcpx*Qmat_qcqp_*C_x_ref - SUx.transpose()*Pvrpu_qcqp_.transpose()*Qvrpx*Qmat_qcqp_*V_x_ref;
+    c_y = gycalc_qcqp_*MPC_qcqp_sqp_gurobi_ - SUy.transpose()*Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*C_y_ref - SUy.transpose()*Pvrpu_qcqp_.transpose()*Qvrpy*Qmat_qcqp_*V_y_ref;
+    c_z = gzcalc_qcqp_*MPC_qcqp_sqp_gurobi_ - SUz.transpose()*Ppu_qcqp_.transpose()*Qcpz*Qmat_qcqp_*C_z_ref - SUz.transpose()*Pvrpu_qcqp_.transpose()*Qvrpz*Qmat_qcqp_*V_z_ref;
+
+    c_p = c_x + c_y + c_z;
+
+    deldel_Cgoal_ = 2*Qcalc_qcqp_;
+
+    Eigen::VectorXd del_cu_;  del_cu_.setZero(3*N_qcqp);
+
+    double constr_eps = 1e-5;
+    const int sqp_iter_num_ = 2;
+    //double leg_length_max = 0.745;
+    double leg_length_max = param_leg_length_;
+    if(eng_int_ == 1) { leg_length_max = 1.0; }
     //double leg_length_min = 0.32;
     Eigen::MatrixXd leg_length(2, N_qcqp);
     for(int sqp_iter = 0; sqp_iter < sqp_iter_num_; sqp_iter++)
@@ -17603,6 +18529,10 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
                 MPC_qcqp_sqp_gurobi_zmp_(0) = MPC_qcqp_sqp_gurobi_(0) - MPC_qcqp_sqp_gurobi_(6)*MPC_qcqp_sqp_gurobi_(2)/(GRAVITY + MPC_qcqp_sqp_gurobi_(8));
                 MPC_qcqp_sqp_gurobi_zmp_(1) = MPC_qcqp_sqp_gurobi_(3) - MPC_qcqp_sqp_gurobi_(6)*MPC_qcqp_sqp_gurobi_(5)/(GRAVITY + MPC_qcqp_sqp_gurobi_(8));    
 
+                MPC_qcqp_sqp_gurobi_vrp_(0) = MPC_qcqp_sqp_gurobi_(0) - zc_mj_*MPC_qcqp_sqp_gurobi_(2)/GRAVITY;
+                MPC_qcqp_sqp_gurobi_vrp_(1) = MPC_qcqp_sqp_gurobi_(3) - zc_mj_*MPC_qcqp_sqp_gurobi_(5)/GRAVITY;
+                MPC_qcqp_sqp_gurobi_vrp_(2) = MPC_qcqp_sqp_gurobi_(6) - zc_mj_*MPC_qcqp_sqp_gurobi_(8)/GRAVITY;
+
                 //send mpc data
                 if(atb_mpc_qcqp_update_ == false)
                 {
@@ -17649,6 +18579,10 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
                 MPC_qcqp_sqp_gurobi_zmp_(0) = MPC_qcqp_sqp_gurobi_(0) - MPC_qcqp_sqp_gurobi_(6)*MPC_qcqp_sqp_gurobi_(2)/(GRAVITY + MPC_qcqp_sqp_gurobi_(8));
                 MPC_qcqp_sqp_gurobi_zmp_(1) = MPC_qcqp_sqp_gurobi_(3) - MPC_qcqp_sqp_gurobi_(6)*MPC_qcqp_sqp_gurobi_(5)/(GRAVITY + MPC_qcqp_sqp_gurobi_(8));    
 
+                MPC_qcqp_sqp_gurobi_vrp_(0) = MPC_qcqp_sqp_gurobi_(0) - zc_mj_*MPC_qcqp_sqp_gurobi_(2)/GRAVITY;
+                MPC_qcqp_sqp_gurobi_vrp_(1) = MPC_qcqp_sqp_gurobi_(3) - zc_mj_*MPC_qcqp_sqp_gurobi_(5)/GRAVITY;
+                MPC_qcqp_sqp_gurobi_vrp_(2) = MPC_qcqp_sqp_gurobi_(6) - zc_mj_*MPC_qcqp_sqp_gurobi_(8)/GRAVITY;
+
                 //send mpc data
                 if(atb_mpc_qcqp_update_ == false)
                 {
@@ -17684,14 +18618,587 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
     { MPC_qcqp_sqp_gurobi_com_prev_p_ = MPC_qcqp_sqp_gurobi_com_prev_; }
 
     //cout << endl;
-    e_qcqp_gurobi_graph << MPC_qcqp_sqp_gurobi_(0)     << "," << MPC_qcqp_sqp_gurobi_(3)     << "," << MPC_qcqp_sqp_gurobi_(6) << "," 
-                        << C_x_ref(0)                  << "," << C_y_ref(0)                  << "," << C_z_ref(0)              << "," 
-                        << MPC_qcqp_sqp_gurobi_zmp_(0) << "," << MPC_qcqp_sqp_gurobi_zmp_(1) << "," << 0                       << ","
-                        << Z_x_max(0)                  << "," << Z_y_max(0)                  << "," << 0                       << ","
-                        << Z_x_min(0)                  << "," << Z_y_min(0)                  << "," << 0                       << "," 
-                        << com_measured_mpc_(0)        << "," << com_measured_mpc_(1)        << "," << com_measured_mpc_(2)    << ","
-                        << lF_x_ref(0)                 << "," << lF_y_ref(0)                 << "," << lF_z_ref(0)             << ","
-                        << rF_x_ref(0)                 << "," << rF_y_ref(0)                 << "," << rF_z_ref(0)             << ","
+    e_qcqp_gurobi_graph << MPC_qcqp_sqp_gurobi_(0)     << "," << MPC_qcqp_sqp_gurobi_(3)     << "," << MPC_qcqp_sqp_gurobi_(6)     << "," 
+                        << C_x_ref(0)                  << "," << C_y_ref(0)                  << "," << C_z_ref(0)                  << "," 
+                        << MPC_qcqp_sqp_gurobi_zmp_(0) << "," << MPC_qcqp_sqp_gurobi_zmp_(1) << "," << 0                           << ","
+                        << Z_x_max(0)                  << "," << Z_y_max(0)                  << "," << 0                           << ","
+                        << Z_x_min(0)                  << "," << Z_y_min(0)                  << "," << 0                           << "," 
+                        << com_measured_mpc_(0)        << "," << com_measured_mpc_(1)        << "," << com_measured_mpc_(2)        << ","
+                        << lF_x_ref(0)                 << "," << lF_y_ref(0)                 << "," << lF_z_ref(0)                 << ","
+                        << rF_x_ref(0)                 << "," << rF_y_ref(0)                 << "," << rF_z_ref(0)                 << ","
+                        << MPC_qcqp_sqp_gurobi_vrp_(0) << "," << MPC_qcqp_sqp_gurobi_vrp_(1) << "," << MPC_qcqp_sqp_gurobi_vrp_(2) << ","
+                        << endl;
+}
+
+void AvatarController::comGenerator_MPC_vrp_insic(double mpc_qcqp_freq, double dt_qcqp_, double preview_window_qcqp_, int MPC_synchro_hz_)
+{
+    double Qvrpx, Qcpx, Qcvx, Qcax, Qvrpy, Qcpy, Qcvy, Qcay, Qvrpz, Qcpz, Qcvz, Qcaz, Rcx, Rcy, Rcz;
+    Qvrpx = 1e-0; Qcpx = 0e-0; Qcvx = 0e-6; Qcax = 0e-6; Rcx = 1e-6;
+    Qvrpy = 1e-0; Qcpy = 0e-0; Qcvy = 0e-6; Qcay = 0e-6; Rcy = 1e-6;
+    Qvrpz = 1e-0; Qcpz = 0e-0; Qcvz = 0e-6; Qcaz = 0e-6; Rcz = 1e-6;
+
+    int mpc_tick = walking_tick_e_qcqp_mpc_ - com_start_tick_e_qcqp_mpc_;
+    const int N_qcqp = preview_window_qcqp_*mpc_qcqp_freq;
+    const int N_state = 3;
+    static int MPC_first_loop = 0;
+    double mpc_var = 1;
+
+    if(MPC_first_loop == 0)
+    {
+        cout << "Initialization of MPC QCQP SQP GUROBI." << endl;
+        if(mpc_var)
+        {
+            A_qcqp_.resize(N_state,N_state);
+            A_qcqp_ << 1, dt_qcqp_/1, dt_qcqp_*dt_qcqp_/2,
+                       0,          1,          dt_qcqp_/1,
+                       0,          0,                  1;
+
+            calc_A_qcqp_.resize(3*N_state,3*N_state);
+            calc_A_qcqp_ << 1*A_qcqp_, 0*A_qcqp_, 0*A_qcqp_,
+                            0*A_qcqp_, 1*A_qcqp_, 0*A_qcqp_,
+                            0*A_qcqp_, 0*A_qcqp_, 1*A_qcqp_;
+
+            B_qcqp_.resize(N_state,1);
+            B_qcqp_ << dt_qcqp_*dt_qcqp_*dt_qcqp_/6,
+                                dt_qcqp_*dt_qcqp_/2,
+                                         dt_qcqp_/1;
+            
+            calc_B_qcqp_.resize(3*N_state,3);
+            calc_B_qcqp_ << 1*B_qcqp_, 0*B_qcqp_, 0*B_qcqp_,
+                            0*B_qcqp_, 1*B_qcqp_, 0*B_qcqp_,
+                            0*B_qcqp_, 0*B_qcqp_, 1*B_qcqp_;
+
+            Cp_qcqp_.resize(1,N_state);
+            Cv_qcqp_.resize(1,N_state);
+            Ca_qcqp_.resize(1,N_state);
+            Cvrp_qcqp_.resize(1,N_state);
+
+            Cp_qcqp_ << 1, 0, 0;
+            Cv_qcqp_ << 0, 1, 0;
+            Ca_qcqp_ << 0, 0, 1;
+            Cvrp_qcqp_ << 1, 0, -zc_mj_/GRAVITY;
+
+            Pps_qcqp_.resize(N_qcqp,N_state);
+            Pvs_qcqp_.resize(N_qcqp,N_state);
+            Pas_qcqp_.resize(N_qcqp,N_state);
+            Pvrps_qcqp_.resize(N_qcqp,N_state);
+
+            Eigen::MatrixXd Ps_calc;
+            Ps_calc.resize(N_state,N_state);
+            Ps_calc = A_qcqp_;
+        
+            Ppu_qcqp_.setZero(N_qcqp, N_qcqp);
+            Pvu_qcqp_.setZero(N_qcqp, N_qcqp);
+            Pau_qcqp_.setZero(N_qcqp, N_qcqp);
+            Pvrpu_qcqp_.setZero(N_qcqp, N_qcqp);
+        
+            Eigen::MatrixXd Pu_calc;
+            Pu_calc.setZero(N_state,N_qcqp);
+        
+            for(int i = 0; i < N_qcqp; i++)
+            {
+                Pps_qcqp_.row(i) = Cp_qcqp_*Ps_calc;
+                Pvs_qcqp_.row(i) = Cv_qcqp_*Ps_calc;
+                Pas_qcqp_.row(i) = Ca_qcqp_*Ps_calc;
+                Pvrps_qcqp_.row(i) = Cvrp_qcqp_*Ps_calc;
+                Ps_calc = Ps_calc*A_qcqp_;
+
+                Pu_calc.col(i) = B_qcqp_;
+                Ppu_qcqp_.row(i) = Cp_qcqp_*Pu_calc;
+                Pvu_qcqp_.row(i) = Cv_qcqp_*Pu_calc;
+                Pau_qcqp_.row(i) = Ca_qcqp_*Pu_calc;
+                Pvrpu_qcqp_.row(i) = Cvrp_qcqp_*Pu_calc;
+                Pu_calc = A_qcqp_*Pu_calc;
+            }
+
+            SUx.setZero(N_qcqp,3*N_qcqp);   SUx << MatrixXd::Identity(N_qcqp,N_qcqp), MatrixXd::Zero(N_qcqp,N_qcqp), MatrixXd::Zero(N_qcqp,N_qcqp);
+            SUy.setZero(N_qcqp,3*N_qcqp);   SUy << MatrixXd::Zero(N_qcqp,N_qcqp), MatrixXd::Identity(N_qcqp,N_qcqp), MatrixXd::Zero(N_qcqp,N_qcqp);
+            SUz.setZero(N_qcqp,3*N_qcqp);   SUz << MatrixXd::Zero(N_qcqp,N_qcqp), MatrixXd::Zero(N_qcqp,N_qcqp), MatrixXd::Identity(N_qcqp,N_qcqp);
+
+            ssx.setZero(N_state,3*N_state); ssx << MatrixXd::Identity(N_state,N_state), MatrixXd::Zero(N_state,N_state), MatrixXd::Zero(N_state,N_state);
+            ssy.setZero(N_state,3*N_state); ssy << MatrixXd::Zero(N_state,N_state), MatrixXd::Identity(N_state,N_state), MatrixXd::Zero(N_state,N_state);
+            ssz.setZero(N_state,3*N_state); ssz << MatrixXd::Zero(N_state,N_state), MatrixXd::Zero(N_state,N_state), MatrixXd::Identity(N_state,N_state);
+
+            Qmat_qcqp_.resize(N_qcqp,N_qcqp);
+            Qmat_qcqp_.setIdentity();
+
+            Qxcalc_qcqp_.setZero(N_qcqp, N_qcqp);
+            Qxcalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpx*Qmat_qcqp_*Ppu_qcqp_ 
+                         + Pvu_qcqp_.transpose()*Qcvx*Qmat_qcqp_*Pvu_qcqp_ 
+                         + Pau_qcqp_.transpose()*Qcax*Qmat_qcqp_*Pau_qcqp_ 
+                         + Pvrpu_qcqp_.transpose()*Qvrpx*Qmat_qcqp_*Pvrpu_qcqp_
+                         + Rcx*Qmat_qcqp_;
+
+            Qycalc_qcqp_.setZero(N_qcqp, N_qcqp);
+            Qycalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Ppu_qcqp_ 
+                         + Pvu_qcqp_.transpose()*Qcvy*Qmat_qcqp_*Pvu_qcqp_ 
+                         + Pau_qcqp_.transpose()*Qcay*Qmat_qcqp_*Pau_qcqp_ 
+                         + Pvrpu_qcqp_.transpose()*Qvrpy*Qmat_qcqp_*Pvrpu_qcqp_
+                         + Rcy*Qmat_qcqp_;
+
+            Qzcalc_qcqp_.setZero(N_qcqp, N_qcqp);
+            Qzcalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpz*Qmat_qcqp_*Ppu_qcqp_ 
+                         + Pvu_qcqp_.transpose()*Qcvz*Qmat_qcqp_*Pvu_qcqp_ 
+                         + Pau_qcqp_.transpose()*Qcaz*Qmat_qcqp_*Pau_qcqp_ 
+                         + Pvrpu_qcqp_.transpose()*Qvrpz*Qmat_qcqp_*Pvrpu_qcqp_
+                         + Rcz*Qmat_qcqp_;
+
+            Qcalc_qcqp_.setZero(3*N_qcqp,3*N_qcqp);
+            Qcalc_qcqp_ = SUx.transpose()*Qxcalc_qcqp_*SUx + SUy.transpose()*Qycalc_qcqp_*SUy + SUz.transpose()*Qzcalc_qcqp_*SUz;
+
+            gxcalc_qcqp_.setZero(3*N_qcqp,3*N_state);
+            gxcalc_qcqp_ = SUx.transpose()*
+                            (Ppu_qcqp_.transpose()*Qcpx*Qmat_qcqp_*Pps_qcqp_ 
+                           + Pvu_qcqp_.transpose()*Qcvx*Qmat_qcqp_*Pvs_qcqp_ 
+                           + Pau_qcqp_.transpose()*Qcax*Qmat_qcqp_*Pas_qcqp_
+                           + Pvrpu_qcqp_.transpose()*Qvrpx*Qmat_qcqp_*Pvrps_qcqp_
+                            )*ssx;
+
+            gycalc_qcqp_.setZero(3*N_qcqp,3*N_state);
+            gycalc_qcqp_ = SUy.transpose()*
+                            (Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Pps_qcqp_ 
+                           + Pvu_qcqp_.transpose()*Qcvy*Qmat_qcqp_*Pvs_qcqp_ 
+                           + Pau_qcqp_.transpose()*Qcay*Qmat_qcqp_*Pas_qcqp_
+                           + Pvrpu_qcqp_.transpose()*Qvrpy*Qmat_qcqp_*Pvrps_qcqp_
+                            )*ssy;
+
+            gzcalc_qcqp_.setZero(3*N_qcqp,3*N_state);
+            gzcalc_qcqp_ = SUz.transpose()*
+                            (Ppu_qcqp_.transpose()*Qcpz*Qmat_qcqp_*Pps_qcqp_ 
+                           + Pvu_qcqp_.transpose()*Qcvz*Qmat_qcqp_*Pvs_qcqp_ 
+                           + Pau_qcqp_.transpose()*Qcaz*Qmat_qcqp_*Pas_qcqp_
+                           + Pvrpu_qcqp_.transpose()*Qvrpz*Qmat_qcqp_*Pvrps_qcqp_
+                            )*ssz;
+        }
+
+        cout << "Initialization of MPC QCQP SQP GUROBI Variable completed." << endl;
+        //Constraint
+        //zmp
+        Const_Psi_zx.setZero(3*N_qcqp,3*N_qcqp);   Const_Psi_zy.setZero(3*N_qcqp,3*N_qcqp);
+        Const_Pi_zx_u.setZero(3*N_qcqp,3*N_qcqp);  Const_Pi_zy_u.setZero(3*N_qcqp,3*N_qcqp);
+        Const_Pi_zx_l.setZero(3*N_qcqp,3*N_qcqp);  Const_Pi_zy_l.setZero(3*N_qcqp,3*N_qcqp);
+        
+        Const_pi_zx_calc.setZero(1,3*N_qcqp);      Const_pi_zy_calc.setZero(1,3*N_qcqp);
+        Const_pi_zx_u_tp.setZero(1,3*N_qcqp);      Const_pi_zy_u_tp.setZero(1,3*N_qcqp);
+        Const_pi_zx_l_tp.setZero(1,3*N_qcqp);      Const_pi_zy_l_tp.setZero(1,3*N_qcqp);
+        
+        Const_ri_zx_calc.setZero(1,1);             Const_ri_zy_calc.setZero(1,1);
+        Const_ri_zx_u.setZero(1,1);                Const_ri_zy_u.setZero(1,1);
+        Const_ri_zx_l.setZero(1,1);                Const_ri_zy_l.setZero(1,1);
+
+        Const_del_hi_zx_u.setZero(3*N_qcqp,1);     Const_del_hi_zy_u.setZero(3*N_qcqp,1);
+        Const_del_hi_zx_l.setZero(3*N_qcqp,1);     Const_del_hi_zy_l.setZero(3*N_qcqp,1);
+
+        Const_hi_zx_u.setZero(1,1);                Const_hi_zy_u.setZero(1,1);
+        Const_hi_zx_l.setZero(1,1);                Const_hi_zy_l.setZero(1,1);
+
+        Const_del_zmp_.setZero(4*N_qcqp,3*N_qcqp);
+        Const_zmp_.setZero(4*N_qcqp,1);
+
+        Const_Psi_ll.setZero(3*N_qcqp,3*N_qcqp);
+        Const_Pi_ll_u.setZero(3*N_qcqp,3*N_qcqp);
+        Const_Pi_ll_l.setZero(3*N_qcqp,3*N_qcqp);
+
+        Const_pi_ll_calc.setZero(1,3*N_qcqp);
+        Const_pi_ll_u_tp.setZero(1,3*N_qcqp);
+        Const_pi_ll_l_tp.setZero(1,3*N_qcqp);
+        
+        Const_ri_ll_calc.setZero(1,1);
+        Const_ri_ll_u.setZero(1,1);
+        Const_ri_ll_l.setZero(1,1);
+
+        Const_del_hi_ll_u.setZero(3*N_qcqp,1);
+        Const_del_hi_ll_l.setZero(3*N_qcqp,1);
+
+        Const_hi_ll_u.setZero(1,1);
+        Const_hi_ll_l.setZero(1,1);
+
+        Const_del_ll_.setZero(4*N_qcqp,3*N_qcqp);
+        Const_ll_.setZero(4*N_qcqp,1);
+
+        cout << "Initialization of MPC QCQP SQP GUROBI Constraints completed." << endl;
+
+        QCQP_mpc_.InitializeProblemSize(3*N_qcqp, 8*N_qcqp);
+
+        MPC_qcqp_sqp_u_.setZero(3*N_qcqp);
+        MPC_qcqp_input_.setZero(N_state);
+
+        deldel_Cgoal_.resize(3*N_qcqp,3*N_qcqp);
+        del_cgoal_.resize(3*N_qcqp,1);
+
+        MPC_qcqp_sqp_gurobi_com_prev_.setZero(9,N_qcqp);
+        MPC_qcqp_sqp_gurobi_com_prev_p_.setZero(9,N_qcqp);
+
+        MPC_first_loop = 1;
+        cout << "Initialization of MPC QCQP SQP GUROBI is completed." << endl;
+    }
+
+    Eigen::MatrixXd c_x(3*N_qcqp,1);
+    Eigen::MatrixXd c_y(3*N_qcqp,1);
+    Eigen::MatrixXd c_z(3*N_qcqp,1);
+    Eigen::MatrixXd c_p(3*N_qcqp,1);
+
+    Eigen::VectorXd C_x_ref(N_qcqp); Eigen::VectorXd lF_x_ref(N_qcqp); Eigen::VectorXd rF_x_ref(N_qcqp);
+    Eigen::VectorXd C_y_ref(N_qcqp); Eigen::VectorXd lF_y_ref(N_qcqp); Eigen::VectorXd rF_y_ref(N_qcqp);
+    Eigen::VectorXd C_z_ref(N_qcqp); Eigen::VectorXd lF_z_ref(N_qcqp); Eigen::VectorXd rF_z_ref(N_qcqp);
+
+    Eigen::VectorXd V_x_ref(N_qcqp);
+    Eigen::VectorXd V_y_ref(N_qcqp);
+    Eigen::VectorXd V_z_ref(N_qcqp);
+
+    Eigen::VectorXd Z_x_max(N_qcqp);
+    Eigen::VectorXd Z_x_min(N_qcqp);
+    Eigen::VectorXd Z_y_max(N_qcqp);
+    Eigen::VectorXd Z_y_min(N_qcqp);
+
+    zmp_max_x_.resize(N_qcqp); zmp_max_y_.resize(N_qcqp);
+    zmp_min_x_.resize(N_qcqp); zmp_min_y_.resize(N_qcqp);
+
+    zmp_max_x_.setZero(); zmp_max_y_.setZero();
+    zmp_min_x_.setZero(); zmp_min_y_.setZero();
+
+    for(int i = 0; i < N_qcqp; i++)
+    {
+        C_x_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,0);
+        C_y_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,1);
+        C_z_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,2);
+
+        V_x_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,0);
+        V_y_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,1);
+        V_z_ref(i) = ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,2);
+
+        lF_x_ref(i) = lfoot_prev_mpc_(mpc_tick + MPC_synchro_hz_*i,0);
+        lF_y_ref(i) = lfoot_prev_mpc_(mpc_tick + MPC_synchro_hz_*i,1);
+        lF_z_ref(i) = lfoot_prev_mpc_(mpc_tick + MPC_synchro_hz_*i,2);
+
+        rF_x_ref(i) = rfoot_prev_mpc_(mpc_tick + MPC_synchro_hz_*i,0);
+        rF_y_ref(i) = rfoot_prev_mpc_(mpc_tick + MPC_synchro_hz_*i,1);
+        rF_z_ref(i) = rfoot_prev_mpc_(mpc_tick + MPC_synchro_hz_*i,2);
+
+        Z_x_max(i) = max_zmp_e_mpc_(mpc_tick + MPC_synchro_hz_*i,0) - zmp_x_max + 0.20;
+        Z_x_min(i) = min_zmp_e_mpc_(mpc_tick + MPC_synchro_hz_*i,0) + zmp_x_min - 0.10;
+
+        Z_y_max(i) = max_zmp_e_mpc_(mpc_tick + MPC_synchro_hz_*i,1) - zmp_y_max + 0.15;
+        Z_y_min(i) = min_zmp_e_mpc_(mpc_tick + MPC_synchro_hz_*i,1) + zmp_y_min - 0.15;
+
+        if(mpc_tick + MPC_synchro_hz_*i < t_double1_ + t_rest_init_)
+        { 
+            if(MPC_dcm_delf_fix_p_(1) < 0.0)
+            { Z_y_max(i) -= MPC_dcm_delf_fix_p_(1); }
+            else
+            { Z_y_min(i) -= MPC_dcm_delf_fix_p_(1); }
+
+            if(MPC_dcm_delf_fix_p_(0) < 0.0)
+            { Z_x_max(i) -= MPC_dcm_delf_fix_p_(0); }
+            else
+            { Z_x_min(i) -= MPC_dcm_delf_fix_p_(0); }
+        }
+
+        Z_x_max(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) + 0.20;
+        Z_x_min(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) - 0.15;
+
+        Z_y_max(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) + 0.15;
+        Z_y_min(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) - 0.15;
+
+        zmp_max_x_(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) + zmp_x_max;
+        zmp_min_x_(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) - zmp_x_min;
+
+        zmp_max_y_(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) + zmp_y_max;
+        zmp_min_y_(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) - zmp_y_min;
+    }
+
+
+    if(walking_tick_e_qcqp_mpc_ < t_temp_)
+    { Qcpy = 1e-0; Qcvy = 1e-1; Qcay = 1e-6; }
+
+    Qycalc_qcqp_ = Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Ppu_qcqp_ 
+                 + Pvu_qcqp_.transpose()*Qcvy*Qmat_qcqp_*Pvu_qcqp_ 
+                 + Pau_qcqp_.transpose()*Qcay*Qmat_qcqp_*Pau_qcqp_ 
+                 + Pvrpu_qcqp_.transpose()*Qvrpy*Qmat_qcqp_*Pvrpu_qcqp_
+                 + Rcy*Qmat_qcqp_;
+
+    Qcalc_qcqp_ = SUx.transpose()*Qxcalc_qcqp_*SUx + SUy.transpose()*Qycalc_qcqp_*SUy + SUz.transpose()*Qzcalc_qcqp_*SUz;
+
+    gycalc_qcqp_ = SUy.transpose()*
+                                (Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*Pps_qcqp_ 
+                               + Pvu_qcqp_.transpose()*Qcvy*Qmat_qcqp_*Pvs_qcqp_ 
+                               + Pau_qcqp_.transpose()*Qcay*Qmat_qcqp_*Pas_qcqp_
+                               + Pvrpu_qcqp_.transpose()*Qvrpy*Qmat_qcqp_*Pvrps_qcqp_
+                               )*ssy;
+
+    c_x = gxcalc_qcqp_*MPC_qcqp_sqp_gurobi_ - SUx.transpose()*Ppu_qcqp_.transpose()*Qcpx*Qmat_qcqp_*C_x_ref - SUx.transpose()*Pvrpu_qcqp_.transpose()*Qvrpx*Qmat_qcqp_*V_x_ref;
+    c_y = gycalc_qcqp_*MPC_qcqp_sqp_gurobi_ - SUy.transpose()*Ppu_qcqp_.transpose()*Qcpy*Qmat_qcqp_*C_y_ref - SUy.transpose()*Pvrpu_qcqp_.transpose()*Qvrpy*Qmat_qcqp_*V_y_ref;
+    c_z = gzcalc_qcqp_*MPC_qcqp_sqp_gurobi_ - SUz.transpose()*Ppu_qcqp_.transpose()*Qcpz*Qmat_qcqp_*C_z_ref - SUz.transpose()*Pvrpu_qcqp_.transpose()*Qvrpz*Qmat_qcqp_*V_z_ref;
+
+    c_p = c_x + c_y + c_z;
+
+    deldel_Cgoal_ = 2*Qcalc_qcqp_;
+
+    Eigen::VectorXd del_cu_;  del_cu_.setZero(3*N_qcqp);
+
+    double constr_eps = 1e-5;
+    const int sqp_iter_num_ = 2;
+    //double leg_length_max = 0.745;
+    double leg_length_max = param_leg_length_;
+    if(eng_int_ == 1) { leg_length_max = 1.0; }
+    //double leg_length_min = 0.32;
+    Eigen::MatrixXd leg_length(2, N_qcqp);
+    for(int sqp_iter = 0; sqp_iter < sqp_iter_num_; sqp_iter++)
+    {   
+        Eigen::VectorXd calc_lbA;
+        Eigen::MatrixXd calc_constr_del_;
+        Eigen::MatrixXd calc_constr_;
+
+        calc_lbA.setZero(8*N_qcqp); calc_lbA.array() = -1e3;
+        calc_constr_del_.setZero(8*N_qcqp, 3*N_qcqp);
+        calc_constr_.setZero(8*N_qcqp, 1);
+
+        /////////////////////////////////////////////////////////////////
+        //////////////////////////CoM MPC Calc//////////////////////////.
+        /////////////////////////////////////////////////////////////////
+        del_cgoal_ = 2*Qcalc_qcqp_*MPC_qcqp_sqp_u_ + c_p;
+
+        QCQP_mpc_.EnableEqualityCondition(equality_condition_eps_);
+        QCQP_mpc_.UpdateMinProblem(deldel_Cgoal_,del_cgoal_);
+        QCQP_mpc_.DeleteSubjectToAx();
+        QCQP_mpc_.DeleteSubjectToX();
+
+        for(int i = 0; i < N_qcqp; i++)
+        {
+            Const_Psi_zx = (Pau_qcqp_.row(i)*SUz).transpose()*Ppu_qcqp_.row(i)*SUx - (Ppu_qcqp_.row(i)*SUz).transpose()*Pau_qcqp_.row(i)*SUx;
+            Const_Pi_zx_u = 0.5*(Const_Psi_zx + Const_Psi_zx.transpose());
+            Const_Pi_zx_l = - Const_Pi_zx_u;
+
+            Const_Psi_zy = (Pau_qcqp_.row(i)*SUz).transpose()*Ppu_qcqp_.row(i)*SUy - (Ppu_qcqp_.row(i)*SUz).transpose()*Pau_qcqp_.row(i)*SUy;
+            Const_Pi_zy_u = 0.5*(Const_Psi_zy + Const_Psi_zy.transpose());
+            Const_Pi_zy_l = - Const_Pi_zy_u;
+
+
+            Const_pi_zx_calc = (Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0))*Pau_qcqp_.row(i)*SUz
+                              -(Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0))*Ppu_qcqp_.row(i)*SUz
+                              +(GRAVITY + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*Ppu_qcqp_.row(i)*SUx
+                              -(Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*Pau_qcqp_.row(i)*SUx;
+            Const_pi_zx_u_tp =  Const_pi_zx_calc - (Z_x_max(i)*Pau_qcqp_.row(i)*SUz);
+            Const_pi_zx_l_tp = -Const_pi_zx_calc + (Z_x_min(i)*Pau_qcqp_.row(i)*SUz);
+
+            Const_pi_zy_calc = (Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3))*Pau_qcqp_.row(i)*SUz
+                              -(Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3))*Ppu_qcqp_.row(i)*SUz
+                              +(GRAVITY + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*Ppu_qcqp_.row(i)*SUy
+                              -(Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*Pau_qcqp_.row(i)*SUy;
+            Const_pi_zy_u_tp =  Const_pi_zy_calc - (Z_y_max(i)*Pau_qcqp_.row(i)*SUz);
+            Const_pi_zy_l_tp = -Const_pi_zy_calc + (Z_y_min(i)*Pau_qcqp_.row(i)*SUz);
+
+
+            Const_ri_zx_calc(0,0) = (GRAVITY + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0))
+                                   -(0.0     + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*(0.0 + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0));
+            Const_ri_zx_u(0,0) = Const_ri_zx_calc(0,0) - (GRAVITY + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*Z_x_max(i);
+            Const_ri_zx_l(0,0) =-Const_ri_zx_calc(0,0) + (GRAVITY + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*Z_x_min(i);
+
+            Const_ri_zy_calc(0,0) = (GRAVITY + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3))
+                                   -(0.0     + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*(0.0 + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3));
+            Const_ri_zy_u(0,0) = Const_ri_zy_calc(0,0) - (GRAVITY + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*Z_y_max(i);
+            Const_ri_zy_l(0,0) =-Const_ri_zy_calc(0,0) + (GRAVITY + Pas_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6))*Z_y_min(i);
+
+
+            Const_del_hi_zx_u = 2*Const_Pi_zx_u*MPC_qcqp_sqp_u_ + Const_pi_zx_u_tp.transpose();
+            Const_del_hi_zx_l = 2*Const_Pi_zx_l*MPC_qcqp_sqp_u_ + Const_pi_zx_l_tp.transpose();
+
+            Const_del_hi_zy_u = 2*Const_Pi_zy_u*MPC_qcqp_sqp_u_ + Const_pi_zy_u_tp.transpose();
+            Const_del_hi_zy_l = 2*Const_Pi_zy_l*MPC_qcqp_sqp_u_ + Const_pi_zy_l_tp.transpose();
+
+
+            Const_hi_zx_u = MPC_qcqp_sqp_u_.transpose()*Const_Pi_zx_u*MPC_qcqp_sqp_u_ + Const_pi_zx_u_tp*MPC_qcqp_sqp_u_ + Const_ri_zx_u;
+            Const_hi_zx_l = MPC_qcqp_sqp_u_.transpose()*Const_Pi_zx_l*MPC_qcqp_sqp_u_ + Const_pi_zx_l_tp*MPC_qcqp_sqp_u_ + Const_ri_zx_l;
+
+            Const_hi_zy_u = MPC_qcqp_sqp_u_.transpose()*Const_Pi_zy_u*MPC_qcqp_sqp_u_ + Const_pi_zy_u_tp*MPC_qcqp_sqp_u_ + Const_ri_zy_u;
+            Const_hi_zy_l = MPC_qcqp_sqp_u_.transpose()*Const_Pi_zy_l*MPC_qcqp_sqp_u_ + Const_pi_zy_l_tp*MPC_qcqp_sqp_u_ + Const_ri_zy_l;    
+                
+
+            calc_constr_del_.row(0*N_qcqp + i) = Const_del_hi_zx_u.transpose();
+            calc_constr_del_.row(1*N_qcqp + i) = Const_del_hi_zx_l.transpose();
+            calc_constr_del_.row(2*N_qcqp + i) = Const_del_hi_zy_u.transpose();
+            calc_constr_del_.row(3*N_qcqp + i) = Const_del_hi_zy_l.transpose();
+
+
+            calc_constr_.block<1,1>(0*N_qcqp + i,0) = -Const_hi_zx_u;
+            calc_constr_.block<1,1>(1*N_qcqp + i,0) = -Const_hi_zx_l;
+            calc_constr_.block<1,1>(2*N_qcqp + i,0) = -Const_hi_zy_u;
+            calc_constr_.block<1,1>(3*N_qcqp + i,0) = -Const_hi_zy_l;
+
+            //ll
+            Const_Psi_ll = (Ppu_qcqp_.row(i)*SUx).transpose()*Ppu_qcqp_.row(i)*SUx
+                          +(Ppu_qcqp_.row(i)*SUy).transpose()*Ppu_qcqp_.row(i)*SUy
+                          +(Ppu_qcqp_.row(i)*SUz).transpose()*Ppu_qcqp_.row(i)*SUz;
+
+            Const_Pi_ll_u = 0.5*(Const_Psi_ll + Const_Psi_ll.transpose());
+            //Const_Pi_ll_l = - Const_Pi_ll_u;
+
+            //left leg length
+            Const_pi_ll_u_tp = 2*(Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0) - lF_x_ref(i))*Ppu_qcqp_.row(i)*SUx
+                              +2*(Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3) - lF_y_ref(i))*Ppu_qcqp_.row(i)*SUy
+                              +2*(Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6) - lF_z_ref(i))*Ppu_qcqp_.row(i)*SUz;
+            //Const_pi_ll_l_tp = - Const_pi_ll_u_tp;
+                
+            Const_ri_ll_calc(0,0) = (0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0) - lF_x_ref(i))*(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0) - lF_x_ref(i))
+                                   +(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3) - lF_y_ref(i))*(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3) - lF_y_ref(i))
+                                   +(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6) - lF_z_ref(i))*(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6) - lF_z_ref(i));
+            Const_ri_ll_u(0,0) =   Const_ri_ll_calc(0,0) - leg_length_max*leg_length_max;
+            //Const_ri_ll_l(0,0) = - Const_ri_ll_calc(0,0) + leg_length_min*leg_length_min;
+                
+            Const_del_hi_ll_u = 2*Const_Pi_ll_u*MPC_qcqp_sqp_u_ + Const_pi_ll_u_tp.transpose();
+            //Const_del_hi_ll_l = 2*Const_Pi_ll_l*MPC_qcqp_sqp_u_ + Const_pi_ll_l_tp.transpose();
+                
+            Const_hi_ll_u = MPC_qcqp_sqp_u_.transpose()*Const_Pi_ll_u*MPC_qcqp_sqp_u_ + Const_pi_ll_u_tp*MPC_qcqp_sqp_u_ + Const_ri_ll_u;
+            //Const_hi_ll_l = MPC_qcqp_sqp_u_.transpose()*Const_Pi_ll_l*MPC_qcqp_sqp_u_ + Const_pi_ll_l_tp*MPC_qcqp_sqp_u_ + Const_ri_ll_l;
+
+            calc_constr_del_.row(4*N_qcqp + i) = Const_del_hi_ll_u.transpose();
+            calc_constr_.block<1,1>(4*N_qcqp + i,0) = - Const_hi_ll_u;
+                
+            //calc_constr_del_.row(5*N_qcqp + i) = Const_del_hi_ll_l.transpose();
+            //calc_constr_.block<1,1>(5*N_qcqp + i,0) = - Const_hi_ll_l;
+
+
+            //right leg length
+            Const_pi_ll_u_tp = 2*(Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0) - rF_x_ref(i))*Ppu_qcqp_.row(i)*SUx
+                              +2*(Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3) - rF_y_ref(i))*Ppu_qcqp_.row(i)*SUy
+                              +2*(Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6) - rF_z_ref(i))*Ppu_qcqp_.row(i)*SUz;
+            //Const_pi_ll_l_tp = - Const_pi_ll_u_tp;
+                
+            Const_ri_ll_calc(0,0) = (0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0) - rF_x_ref(i))*(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(0) - rF_x_ref(i))
+                                   +(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3) - rF_y_ref(i))*(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(3) - rF_y_ref(i))
+                                   +(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6) - rF_z_ref(i))*(0.0 + Pps_qcqp_.row(i)*MPC_qcqp_sqp_gurobi_.segment<3>(6) - rF_z_ref(i));
+            Const_ri_ll_u(0,0) =   Const_ri_ll_calc(0,0) - leg_length_max*leg_length_max;
+            //Const_ri_ll_l(0,0) = - Const_ri_ll_calc(0,0) + leg_length_min*leg_length_min;
+             
+            Const_del_hi_ll_u = 2*Const_Pi_ll_u*MPC_qcqp_sqp_u_ + Const_pi_ll_u_tp.transpose();
+            //Const_del_hi_ll_l = 2*Const_Pi_ll_l*MPC_qcqp_sqp_u_ + Const_pi_ll_l_tp.transpose();
+                
+            Const_hi_ll_u = MPC_qcqp_sqp_u_.transpose()*Const_Pi_ll_u*MPC_qcqp_sqp_u_ + Const_pi_ll_u_tp*MPC_qcqp_sqp_u_ + Const_ri_ll_u;
+            //Const_hi_ll_l = MPC_qcqp_sqp_u_.transpose()*Const_Pi_ll_l*MPC_qcqp_sqp_u_ + Const_pi_ll_l_tp*MPC_qcqp_sqp_u_ + Const_ri_ll_l;
+
+            calc_constr_del_.row(6*N_qcqp + i) = Const_del_hi_ll_u.transpose();
+            calc_constr_.block<1,1>(6*N_qcqp + i,0) = - Const_hi_ll_u;
+
+            //calc_constr_del_.row(7*N_qcqp + i) = Const_del_hi_ll_l.transpose();
+            //calc_constr_.block<1,1>(7*N_qcqp + i,0) = - Const_hi_ll_l;
+        }
+
+        QCQP_mpc_.UpdateSubjectToAx(calc_constr_del_, calc_lbA, calc_constr_);
+
+        if(QCQP_mpc_.SolveQPoases(200, del_cu_))
+        {
+            if((walking_tick_e_qcqp_mpc_ - 1000/int(mpc_qcqp_freq) + 1)%4000 == 0)
+            { cout << "QCQP CoM MPC Solved" << endl;; }
+
+            MPC_qcqp_sqp_u_ = MPC_qcqp_sqp_u_ + del_cu_; 
+
+            if(sqp_iter == sqp_iter_num_ - 1)
+            {
+                MPC_qcqp_input_ << MPC_qcqp_sqp_u_(0*N_qcqp), MPC_qcqp_sqp_u_(1*N_qcqp), MPC_qcqp_sqp_u_(2*N_qcqp);
+                MPC_qcqp_sqp_gurobi_p_ = MPC_qcqp_sqp_gurobi_;
+                MPC_qcqp_sqp_gurobi_ = calc_A_qcqp_*MPC_qcqp_sqp_gurobi_ + calc_B_qcqp_*MPC_qcqp_input_;
+
+                MPC_qcqp_sqp_gurobi_zmp_(0) = MPC_qcqp_sqp_gurobi_(0) - MPC_qcqp_sqp_gurobi_(6)*MPC_qcqp_sqp_gurobi_(2)/(GRAVITY + MPC_qcqp_sqp_gurobi_(8));
+                MPC_qcqp_sqp_gurobi_zmp_(1) = MPC_qcqp_sqp_gurobi_(3) - MPC_qcqp_sqp_gurobi_(6)*MPC_qcqp_sqp_gurobi_(5)/(GRAVITY + MPC_qcqp_sqp_gurobi_(8));    
+
+                MPC_qcqp_sqp_gurobi_vrp_(0) = MPC_qcqp_sqp_gurobi_(0) - zc_mj_*MPC_qcqp_sqp_gurobi_(2)/GRAVITY;
+                MPC_qcqp_sqp_gurobi_vrp_(1) = MPC_qcqp_sqp_gurobi_(3) - zc_mj_*MPC_qcqp_sqp_gurobi_(5)/GRAVITY;
+                MPC_qcqp_sqp_gurobi_vrp_(2) = MPC_qcqp_sqp_gurobi_(6) - zc_mj_*MPC_qcqp_sqp_gurobi_(8)/GRAVITY;
+
+                //send mpc data
+                if(atb_mpc_qcqp_update_ == false)
+                {
+                    atb_mpc_qcqp_update_ = true;
+
+                    MPC_qcqp_sqp_gurobi_p_thread_ = MPC_qcqp_sqp_gurobi_p_;
+                    MPC_qcqp_sqp_gurobi_thread_ = MPC_qcqp_sqp_gurobi_;
+
+                    MPC_qcqp_sqp_gurobi_u_thread_ = MPC_qcqp_input_;
+
+                    current_step_num_qcqp_thread2_ = current_step_num_qcqp_mpc_;
+                    atb_mpc_qcqp_update_ = false;
+                }
+                mpc_qcqp_update_ = true;
+
+                MPC_qcqp_sqp_gurobi_com_prev_p_ = MPC_qcqp_sqp_gurobi_com_prev_;
+
+                MPC_qcqp_sqp_gurobi_com_prev_.col(0) = MPC_qcqp_sqp_gurobi_;
+
+                for(int i = 0; i < N_qcqp; i++)
+                {
+                    if(i > 0)
+                    {
+                        MPC_qcqp_input_ << MPC_qcqp_sqp_u_(0*N_qcqp + i), MPC_qcqp_sqp_u_(1*N_qcqp + i), MPC_qcqp_sqp_u_(2*N_qcqp + i);
+                        MPC_qcqp_sqp_gurobi_com_prev_.col(i) = calc_A_qcqp_*MPC_qcqp_sqp_gurobi_com_prev_.col(i-1) + calc_B_qcqp_*MPC_qcqp_input_;
+                    }
+                    leg_length(0,i) = sqrt(pow(MPC_qcqp_sqp_gurobi_com_prev_(0,i) - lF_x_ref(i),2) + pow(MPC_qcqp_sqp_gurobi_com_prev_(3,i) - lF_y_ref(i),2) + pow(MPC_qcqp_sqp_gurobi_com_prev_(6,i) - lF_z_ref(i),2));
+                    leg_length(1,i) = sqrt(pow(MPC_qcqp_sqp_gurobi_com_prev_(0,i) - rF_x_ref(i),2) + pow(MPC_qcqp_sqp_gurobi_com_prev_(3,i) - rF_y_ref(i),2) + pow(MPC_qcqp_sqp_gurobi_com_prev_(6,i) - rF_z_ref(i),2));
+                }
+            }
+        }
+        else
+        { 
+            cout << "QCQP CoM MPC Not Solved" << endl;
+            cout << int(walking_tick_e_qcqp_mpc_ + 101)/200 << endl;
+            MPC_qcqp_sqp_u_ = MPC_qcqp_sqp_u_;
+
+            if(sqp_iter == sqp_iter_num_ - 1)
+            {
+                MPC_qcqp_input_ << MPC_qcqp_sqp_u_(0*N_qcqp), MPC_qcqp_sqp_u_(1*N_qcqp), MPC_qcqp_sqp_u_(2*N_qcqp);
+                MPC_qcqp_sqp_gurobi_p_ = MPC_qcqp_sqp_gurobi_;
+                MPC_qcqp_sqp_gurobi_ = calc_A_qcqp_*MPC_qcqp_sqp_gurobi_ + calc_B_qcqp_*MPC_qcqp_input_;
+
+                MPC_qcqp_sqp_gurobi_zmp_(0) = MPC_qcqp_sqp_gurobi_(0) - MPC_qcqp_sqp_gurobi_(6)*MPC_qcqp_sqp_gurobi_(2)/(GRAVITY + MPC_qcqp_sqp_gurobi_(8));
+                MPC_qcqp_sqp_gurobi_zmp_(1) = MPC_qcqp_sqp_gurobi_(3) - MPC_qcqp_sqp_gurobi_(6)*MPC_qcqp_sqp_gurobi_(5)/(GRAVITY + MPC_qcqp_sqp_gurobi_(8));    
+
+                MPC_qcqp_sqp_gurobi_vrp_(0) = MPC_qcqp_sqp_gurobi_(0) - zc_mj_*MPC_qcqp_sqp_gurobi_(2)/GRAVITY;
+                MPC_qcqp_sqp_gurobi_vrp_(1) = MPC_qcqp_sqp_gurobi_(3) - zc_mj_*MPC_qcqp_sqp_gurobi_(5)/GRAVITY;
+                MPC_qcqp_sqp_gurobi_vrp_(2) = MPC_qcqp_sqp_gurobi_(6) - zc_mj_*MPC_qcqp_sqp_gurobi_(8)/GRAVITY;
+
+                //send mpc data
+                if(atb_mpc_qcqp_update_ == false)
+                {
+                    atb_mpc_qcqp_update_ = true;
+
+                    MPC_qcqp_sqp_gurobi_p_thread_ = MPC_qcqp_sqp_gurobi_p_;
+                    MPC_qcqp_sqp_gurobi_thread_ = MPC_qcqp_sqp_gurobi_;
+
+                    current_step_num_qcqp_thread2_ = current_step_num_qcqp_mpc_;
+                    atb_mpc_qcqp_update_ = false;
+                }
+                mpc_qcqp_update_ = true;
+
+                MPC_qcqp_sqp_gurobi_com_prev_p_ = MPC_qcqp_sqp_gurobi_com_prev_;
+
+                MPC_qcqp_sqp_gurobi_com_prev_.col(0) = MPC_qcqp_sqp_gurobi_;
+
+                for(int i = 0; i < N_qcqp; i++)
+                {
+                    if(i > 0)
+                    {
+                        MPC_qcqp_input_ << MPC_qcqp_sqp_u_(0*N_qcqp + i), MPC_qcqp_sqp_u_(1*N_qcqp + i), MPC_qcqp_sqp_u_(2*N_qcqp + i);
+                        MPC_qcqp_sqp_gurobi_com_prev_.col(i) = calc_A_qcqp_*MPC_qcqp_sqp_gurobi_com_prev_.col(i-1) + calc_B_qcqp_*MPC_qcqp_input_;
+                    }
+                }
+            }
+        }
+
+        //cout << "sqp iter: " << sqp_iter + 1 << endl;
+    }
+
+    if(walking_tick_e_qcqp_mpc_ < 2000/thread3_hz_)
+    { MPC_qcqp_sqp_gurobi_com_prev_p_ = MPC_qcqp_sqp_gurobi_com_prev_; }
+
+    //cout << endl;
+    e_qcqp_gurobi_graph << MPC_qcqp_sqp_gurobi_(0)     << "," << MPC_qcqp_sqp_gurobi_(3)     << "," << MPC_qcqp_sqp_gurobi_(6)     << "," 
+                        << C_x_ref(0)                  << "," << C_y_ref(0)                  << "," << C_z_ref(0)                  << "," 
+                        << MPC_qcqp_sqp_gurobi_zmp_(0) << "," << MPC_qcqp_sqp_gurobi_zmp_(1) << "," << 0                           << ","
+                        << Z_x_max(0)                  << "," << Z_y_max(0)                  << "," << 0                           << ","
+                        << Z_x_min(0)                  << "," << Z_y_min(0)                  << "," << 0                           << "," 
+                        << com_measured_mpc_(0)        << "," << com_measured_mpc_(1)        << "," << com_measured_mpc_(2)        << ","
+                        << lF_x_ref(0)                 << "," << lF_y_ref(0)                 << "," << lF_z_ref(0)                 << ","
+                        << rF_x_ref(0)                 << "," << rF_y_ref(0)                 << "," << rF_z_ref(0)                 << ","
+                        << MPC_qcqp_sqp_gurobi_vrp_(0) << "," << MPC_qcqp_sqp_gurobi_vrp_(1) << "," << MPC_qcqp_sqp_gurobi_vrp_(2) << ","
                         << endl;
 }
 
@@ -19842,8 +21349,39 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
         Z_y_max(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) + zmp_y_max;
         Z_y_min(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,1) - zmp_y_min;
 
+        Z_x_max(i) = zmp_max_x_(i);
+        Z_x_min(i) = zmp_min_x_(i);
+
+        Z_y_max(i) = zmp_max_y_(i);
+        Z_y_min(i) = zmp_min_y_(i);
+
         for(int j = 0; j < 1; j++)
-        { if(mpc_tick + MPC_synchro_hz_*i > (j+1)*t_total_const_) { dcm_Sf_i_(i,j) = 1; } }
+        { 
+            if(mpc_tick >= t_total_const_ - t_double2_ - t_rest_last_)
+            {
+                if(mpc_tick + MPC_synchro_hz_*i > (j+1)*t_total_const_)
+                { dcm_Sf_i_(i,j) = 1; }
+            }
+            else
+            {
+            if(mpc_tick + MPC_synchro_hz_*i > (j+1)*(t_total_const_ - t_double2_ - t_rest_last_))
+            { dcm_Sf_i_(i,j) = 1.0/6.0; }
+            if(mpc_tick + MPC_synchro_hz_*i > (j+1)*(t_total_const_ - t_double2_ - 0.5*t_rest_last_))
+            { dcm_Sf_i_(i,j) = 2.0/6.0; }
+            if(mpc_tick + MPC_synchro_hz_*i > (j+1)*(t_total_const_ - t_double2_))
+            { dcm_Sf_i_(i,j) = 3.0/6.0; }
+            if(mpc_tick + MPC_synchro_hz_*i > (j+1)*(t_total_const_))
+            { dcm_Sf_i_(i,j) = 4.0/6.0; }
+            if(mpc_tick + MPC_synchro_hz_*i > (j+1)*(t_total_const_ + t_double1_))
+            { dcm_Sf_i_(i,j) = 5.0/6.0; }
+            if(mpc_tick + MPC_synchro_hz_*i > (j+1)*(t_total_const_ + t_double1_ + 0.5*t_rest_last_))
+            { dcm_Sf_i_(i,j) = 6.0/6.0; }
+            //if(mpc_tick + MPC_synchro_hz_*i > (j+1)*t_total_const_ + t_double1_ + 1*t_rest_init_/3.0)
+            //{ dcm_Sf_i_(i,j) = 7.0/8.0; }
+            //if(mpc_tick + MPC_synchro_hz_*i > (j+1)*t_total_const_ + t_double1_ + 2*t_rest_init_/3.0)
+            //{ dcm_Sf_i_(i,j) = 8.0/8.0; }
+            }
+        }
     }
 
     double Q_dcm_x, Q_dcm_y, Q_dcm_z, R_dcm_x, R_dcm_y, R_dcm_z, R_f_x, R_f_y, R_df_x, R_df_y;
@@ -19853,27 +21391,29 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
     R_f_x   = 1e-2,  R_f_y   = 1e-2;
     R_df_x  = 2e+1,  R_df_y  = 1e+3;
 
-    //Q_dcm_x = param_Q_dcm_x_,  Q_dcm_y = param_Q_dcm_y_,  Q_dcm_z = param_Q_dcm_z_;
-    //R_dcm_x = param_R_dcm_x_,  R_dcm_y = param_R_dcm_y_,  R_dcm_z = param_R_dcm_z_;
-    //R_f_x   = param_R_f_x_,    R_f_y   = param_R_f_y_;
-    //R_df_x  = param_R_df_x_,   R_df_y  = param_R_df_y_; // stepping not 0, previous delf
+    Q_dcm_x = param_Q_dcm_x_,  Q_dcm_y = param_Q_dcm_y_,  Q_dcm_z = param_Q_dcm_z_;
+    R_dcm_x = param_R_dcm_x_,  R_dcm_y = param_R_dcm_y_,  R_dcm_z = param_R_dcm_z_;
+    R_f_x   = param_R_f_x_,    R_f_y   = param_R_f_y_;
+    R_df_x  = param_R_df_x_,   R_df_y  = param_R_df_y_; // stepping not 0, previous delf
     
     if(current_step_num_qcqp_mpc_ == 0)
     //{ Q_dcm_y = 5e-1; R_dcm_y = 1e-0; }
     { Q_dcm_y = 1e-0; R_dcm_y = 7e-1; }
 
-    double delf_x_max = 0.25;
-    double delf_x_min = 0.30;
-    if(eng_int_ == 1)
-    { delf_x_min = 0.0; }
+    //double delf_x_max = 0.25;
+    //double delf_x_max = 0.15;
+    double delf_x_max = param_f_x_max_;
+    //double delf_x_min = 0.30;
+    double delf_x_min = param_f_x_max_;
+    if(eng_int_ != 0) { delf_x_min = 0.0; }
+    //if(mpc_tick >= t_total_const_ - t_double2_ - t_rest_last_ - 0.0*hz_) { delf_x_min = 0.0; }
 
-    //double delf_x_min = param_f_x_max_;
     double delf_dx_max = 0.5;
     double delf_dx_min = 0.5;
-    double delf_y_max = 0.15;
-    if(eng_int_ == 1)
-    { delf_y_max = 0.0; }
-    //double delf_y_max = param_f_y_max_;
+    //double delf_y_max = 0.15;
+    double delf_y_max = param_f_y_max_;
+    if(eng_int_ != 0) { delf_y_max = 0.0; }
+
     double delf_y_min = 0.03;
     double delf_dy_max = 0.5;
     double delf_dy_min = 0.5;
@@ -19930,7 +21470,8 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
         Rmat_dcm_(3*i + 2, 3*i + 2) = R_dcm_z;
     }
 
-    Qmat_dcm_(3*N_dcm - 3, 3*N_dcm - 3) = 100; Qmat_dcm_(3*N_dcm - 2, 3*N_dcm - 2) = 100; Qmat_dcm_(3*N_dcm - 1, 3*N_dcm - 1) = 100;
+    Qmat_dcm_(0,0) = 10;
+    //Qmat_dcm_(3*N_dcm - 3, 3*N_dcm - 3) = 100; Qmat_dcm_(3*N_dcm - 2, 3*N_dcm - 2) = 100; Qmat_dcm_(3*N_dcm - 1, 3*N_dcm - 1) = 100;
 
     Eigen::MatrixXd Rmat_dcm_f;  Rmat_dcm_f.setZero(2*max_foot_num,2*max_foot_num);
     Eigen::MatrixXd Rmat_dcm_df; Rmat_dcm_df.setZero(2*max_foot_num,2*max_foot_num);
@@ -20300,21 +21841,28 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
                  << endl;
 
     double calc_dcm_x_prev = dcm_measured_mpc_(0);
+    double calc_dcm_z_prev = dcm_measured_mpc_(2);
     double calc_lambda_prev = MPC_dcm_lambda_;
     double calc_zmp_prev = MPC_dcm_zmp_(0);
     for(int i = 0; i < N_dcm; i++)
     {
+        calc_lambda_prev = (1 - (MPC_qcqp_dcm_foot_u_(3*i + 2) - b_square_calc*GRAVITY)/com_refz(i))/b_square_calc;
+        calc_zmp_prev = (MPC_qcqp_dcm_foot_u_(3*i + 0) - (1 - calc_lambda_prev*b_square_calc)*com_refx(i))/(calc_lambda_prev*b_square_calc);
+
         e_tmp_graph4 << MPC_qcqp_dcm_foot_u_(3*i + 0) << ",";
         e_tmp_graph5 << Z_x_min(i) << "," ;
         e_tmp_graph6 << Z_x_max(i) << "," ;
         e_tmp_graph7 << dcm_ref(3*i + 0) << "," ;
         e_tmp_graph8 << calc_dcm_x_prev << "," ;
-        
-        calc_dcm_x_prev = exp(dt_dcm/dcm_mpc_b)*calc_dcm_x_prev + (1 - exp(dt_dcm/dcm_mpc_b))*MPC_qcqp_dcm_foot_u_(3*i + 0);
-        calc_lambda_prev = (1 - (MPC_qcqp_dcm_foot_u_(3*i + 2) - b_square_calc*GRAVITY)/com_refz(i))/b_square_calc;
-        calc_zmp_prev = (MPC_qcqp_dcm_foot_u_(3*i + 0) - (1 - calc_lambda_prev*b_square_calc)*com_refx(i))/(calc_lambda_prev*b_square_calc);
-
         e_tmp_graph9 << calc_zmp_prev << "," ;
+        e_tmp_graph10 << ref_com_e_mpc_(mpc_tick + MPC_synchro_hz_*i,0) << ",";
+        e_tmp_graph11 << com_refx(i) << ",";
+        e_tmp_graph12 << MPC_qcqp_dcm_foot_u_(3*i + 2) << ",";
+        e_tmp_graph13 << dcm_ref(3*i + 2) << ",";
+        e_tmp_graph14 << calc_dcm_z_prev << ",";
+
+        calc_dcm_x_prev = exp(dt_dcm/dcm_mpc_b)*calc_dcm_x_prev + (1 - exp(dt_dcm/dcm_mpc_b))*MPC_qcqp_dcm_foot_u_(3*i + 0);
+        calc_dcm_z_prev = exp(dt_dcm/dcm_mpc_b)*calc_dcm_z_prev + (1 - exp(dt_dcm/dcm_mpc_b))*MPC_qcqp_dcm_foot_u_(3*i + 2);
     }
     e_tmp_graph4 << endl;
     e_tmp_graph5 << endl;
@@ -20322,6 +21870,11 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
     e_tmp_graph7 << endl;
     e_tmp_graph8 << endl;
     e_tmp_graph9 << endl;
+    e_tmp_graph10 << endl;
+    e_tmp_graph11 << endl;
+    e_tmp_graph12 << endl;
+    e_tmp_graph13 << endl;
+    e_tmp_graph14 << endl;
 
     if(mpc_tick >= t_total_const_ - 0.049*hz_) { MPC_dcm_delf_p_.setZero(); MPC_dcm_delf_.setZero(); MPC_dcm_delf_fix_.setZero(); }
 
@@ -20815,14 +22368,14 @@ void AvatarController::parameterSetting()
 
     //t_rest_init_ = 0.15 * hz_; // slack
     //t_rest_last_ = 0.15 * hz_;
-    t_rest_init_ = 0.15 * hz_; // slack
-    t_rest_last_ = 0.15 * hz_;
+    t_rest_init_ = 0.10 * hz_; // slack
+    t_rest_last_ = 0.10 * hz_;
     t_double1_ = 0.05 * hz_;
     t_double2_ = 0.05 * hz_;
     t_total_ = 1.0 * hz_;
     t_total_const_ = 1.0 * hz_;
-    //foot_height_ = 0.050 + 0.1*step_length_x_;      // 0.9 sec 0.05
-    foot_height_ = 0.070 + 0.1*step_length_x_;      // 0.9 sec 0.05
+    foot_height_ = 0.050 + 0.1*step_length_x_;      // 0.9 sec 0.05
+    //foot_height_ = 0.070 + 0.1*step_length_x_;      // 0.9 sec 0.05
 
     t_temp_ = 2.0 * hz_;
     t_last_ = t_total_ + t_temp_;
@@ -21183,22 +22736,38 @@ void AvatarController::CP_compen_MJ_FT()
 
         vrp_ref(0) = ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0);
         vrp_ref(1) = lambda_ref*b_mpc*b_mpc*ZMP_Y_REF_ + (1 - lambda_ref*b_mpc*b_mpc)*qcqp_mpc_i_(3);
+        //vrp_ref(1) = ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,1);
         vrp_ref(2) =                                     (1 - lambda_ref*b_mpc*b_mpc)*qcqp_mpc_i_(6) + GRAVITY*b_mpc*b_mpc;
+        
+        if((int(walking_tick_mj)%50)==0)
+        {        
+            dcm_measured_p_p_(0) = dcm_measured_p_(0);
+            dcm_measured_p_(0) = dcm_measured_(0);
+        }
+
+        if((int(walking_tick_mj)%40)==0)
+        {        
+            dcm_measured_p_p_(1) = dcm_measured_p_(1);
+            dcm_measured_p_(1) = dcm_measured_(1);
+        }
 
         Eigen::VectorXd del_vrp; del_vrp.setZero(3);
-        del_vrp(0) = 4.5*(dcm_measured_(0) - dcm_desired_(0));
-        del_vrp(1) = 1.5*(dcm_measured_(1) - dcm_desired_(1));
-        del_vrp(2) = 2.5*(dcm_measured_(2) - dcm_desired_(2));
+        del_vrp(0) = eng_dcm_kp_(0)*(dcm_measured_p_p_(0) - dcm_desired_(0));
+        if(walking_tick_mj < t_temp_)
+        { del_vrp(1) = 1.5*(dcm_measured_p_p_(1) - dcm_desired_(1)); }
+        else
+        { del_vrp(1) = param_eng_y_*(dcm_measured_(1) - dcm_desired_(1)); }
+        del_vrp(2) = eng_dcm_kp_(2)*(dcm_measured_(2) - dcm_desired_(2));
 
         vrp_desired_(0) = vrp_ref(0) + del_vrp(0);
         vrp_desired_(1) = vrp_ref(1) + del_vrp(1);
         vrp_desired_(2) = vrp_ref(2) + del_vrp(2);
 
-        if(eng_int_ == 1)
+        if(eng_int_ != 0)
         {
-            lambda_desired = (com_support_current_(2) - vrp_desired_(2) + GRAVITY*b_mpc*b_mpc)/(com_support_current_(2)*b_mpc*b_mpc);
-            ZMP_X_DES_CALC = (vrp_desired_(0) - (1 - lambda_desired*b_mpc*b_mpc)*com_support_current_(0))/(lambda_desired*b_mpc*b_mpc);
-            ZMP_Y_DES_CALC = (vrp_desired_(1) - (1 - lambda_desired*b_mpc*b_mpc)*com_support_current_(1))/(lambda_desired*b_mpc*b_mpc);
+            lambda_desired = (com_desired_(2) - vrp_desired_(2) + GRAVITY*b_mpc*b_mpc)/(com_desired_(2)*b_mpc*b_mpc);
+            ZMP_X_DES_CALC = (vrp_desired_(0) - (1 - lambda_desired*b_mpc*b_mpc)*com_desired_(0))/(lambda_desired*b_mpc*b_mpc);
+            ZMP_Y_DES_CALC = (vrp_desired_(1) - (1 - lambda_desired*b_mpc*b_mpc)*com_desired_(1))/(lambda_desired*b_mpc*b_mpc);
         }
 
         Eigen::VectorXd ecmp_desired; ecmp_desired.setZero(3);
@@ -21208,40 +22777,37 @@ void AvatarController::CP_compen_MJ_FT()
         Eigen::VectorXd zmp_calc_vector;       zmp_calc_vector.setZero(3);
 
         zmp_calc_vector << ZMP_X_DES_CALC, ZMP_Y_DES_CALC, 0;
-        if(eng_next_step_(0) > 0.05)
-        { ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0) + eng_next_step_(0); }
-        if(ZMP_X_DES_CALC < ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0) -zmp_x_min)
-        { zmp_calc_vector(0) = ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0) -zmp_x_min; }
-        if(ZMP_X_DES_CALC > zmp_x_max)
-        { zmp_calc_vector(0) =  zmp_x_max; }
-        if(eng_next_step_(0) > 0.05)
-        { ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0) - eng_next_step_(0); }
+        
+        if(ZMP_X_DES_CALC < ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0) - zmp_x_min)
+        { zmp_calc_vector(0) = ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0) - zmp_x_min; }
+        
+        if(ZMP_X_DES_CALC > ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0) + zmp_x_max) 
+        { zmp_calc_vector(0) = ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,0) + zmp_x_max; }
+
+        if(ZMP_Y_DES_CALC < ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,1) - zmp_y_min)
+        { zmp_calc_vector(1) = ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,1) - zmp_y_min; }
+        
+        if(ZMP_Y_DES_CALC > ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,1) + zmp_y_max) 
+        { zmp_calc_vector(1) = ref_zmp_mj_wo_offset_(walking_tick_mj - (bool)current_step_num_*t_start_,1) + zmp_y_max; }
 
         Eigen::VectorXd zmp_com_calc_vector; zmp_com_calc_vector.setZero(3);
-        zmp_com_calc_vector = zmp_calc_vector - com_support_current_;
+        zmp_com_calc_vector = zmp_calc_vector - com_desired_;
         double zmp_calc_vector_size = sqrt(pow(zmp_com_calc_vector(0),2) + pow(zmp_com_calc_vector(1),2) + pow(zmp_com_calc_vector(2),2));
         zmp_com_calc_vector(0) = zmp_com_calc_vector(0)/zmp_calc_vector_size;
         zmp_com_calc_vector(1) = zmp_com_calc_vector(1)/zmp_calc_vector_size;
         zmp_com_calc_vector(2) = zmp_com_calc_vector(2)/zmp_calc_vector_size;
 
-        ecmp_desired_feasible = com_support_current_ + zmp_com_calc_vector*(zmp_com_calc_vector(0)*(ecmp_desired(0) - com_support_current_(0)) + zmp_com_calc_vector(1)*(ecmp_desired(1) - com_support_current_(1)) + zmp_com_calc_vector(2)*(ecmp_desired(2) - com_support_current_(2)));
+        ecmp_desired_feasible = com_desired_ + zmp_com_calc_vector*(zmp_com_calc_vector(0)*(ecmp_desired(0) - com_desired_(0)) + zmp_com_calc_vector(1)*(ecmp_desired(1) - com_desired_(1)) + zmp_com_calc_vector(2)*(ecmp_desired(2) - com_desired_(2)));
 
         Eigen::VectorXd vrp_desired_feasible; vrp_desired_feasible.setZero(3);
         vrp_desired_feasible = ecmp_desired_feasible; vrp_desired_feasible(2) = ecmp_desired_feasible(2) + GRAVITY*b_mpc*b_mpc;
 
-        if(eng_int_ == 1)
+        if(eng_int_ != 0)
         {
             ZMP_X_DES_CALC = zmp_calc_vector(0);
-            lambda_desired = (vrp_desired_feasible(0) - com_support_current_(0))/(b_mpc*b_mpc*(ZMP_X_DES_CALC - com_support_current_(0)));
-            ZMP_Y_DES_CALC = (vrp_desired_feasible(1) - (1 - lambda_desired*b_mpc*b_mpc)*com_support_current_(1))/(lambda_desired*b_mpc*b_mpc);
+            ZMP_Y_DES_CALC = zmp_calc_vector(1);
+            lambda_desired = (vrp_desired_feasible(0) - com_desired_(0))/(b_mpc*b_mpc*(ZMP_X_DES_CALC - com_desired_(0)));
         }
-        
-        e_tmp_graph11 << dcm_desired_(0)         << "," << dcm_desired_(1)         << "," << dcm_desired_(2)         << ","
-                      << dcm_measured_(0)        << "," << dcm_measured_(1)        << "," << dcm_measured_(2)        << ","
-                      << vrp_desired_(0)         << "," << vrp_desired_(1)         << "," << vrp_desired_(2)         << ","
-                      << vrp_desired_feasible(0) << "," << vrp_desired_feasible(1) << "," << vrp_desired_feasible(2) << "," 
-                      << ZMP_X_DES_CALC          << "," << ZMP_Y_DES_CALC          << "," << 0                       << ","
-                      << endl;
     }
     else if(qcqp_int_ == 2)
     {
