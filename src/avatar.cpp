@@ -789,9 +789,10 @@ void AvatarController::computeSlow()
                 torque_upper_.segment(12, MODEL_DOF - 12) = rd_.torque_desired.segment(12, MODEL_DOF - 12);
 
                 //qcqp_int_ = param_qcqp_int_; // 0 MJ_ICRA 1 DCM 2 Ding
-                eng_int_ = param_eng_int_;
+                //eng_int_ = param_eng_int_;
                 qcqp_int_ = 1;
-                //eng_int_ = 1;
+                eng_int_ = 0;
+                param_sim_mode_ = 1;
                 if(qcqp_int_ == 0) { cout << "MJ ICRA" << endl; }
                 else if(qcqp_int_ == 1) { cout << "E DCM MPC" << endl; }
                 else if(qcqp_int_ == 2) { cout << "Ding" << endl; }
@@ -14608,7 +14609,6 @@ void AvatarController::getPelvTrajectory()
     else if(qcqp_int_ == 1)
     {
         pelv_trajectory_support_.translation()(1) = pelv_support_current_.translation()(1) + 0.7 * (com_desired_(1) - com_support_current_(1));
-        //pelv_trajectory_support_.translation()(1) = pelv_support_current_.translation()(1) + 1.0 * (com_desired_(1) - com_support_current_(1));
         pelv_trajectory_support_.translation()(2) = pelv_support_current_.translation()(2) + 1.0 * (com_desired_(2) - com_support_current_(2));
     }
     else if(qcqp_int_ == 2)
@@ -15536,6 +15536,38 @@ void AvatarController::comGenerator_thread(const unsigned int norm_size, const u
     else if (walking_tick_e_qcqp_mpc_ <= 0.75*t_temp_)
     { h_diff = - 1.0*(zc_mj_ - com_height); }
 
+    if(walking_tick_e_qcqp_mpc_ >= t_temp_ + 4*t_total_const_)
+    {
+        h_diff = - (zc_mj_ - (com_height - 0.10));
+    }
+    if(walking_tick_e_qcqp_mpc_ >= t_temp_ + 6*t_total_const_)
+    {
+        h_diff = - (zc_mj_ - (com_height - 0.00));
+    }
+    if(walking_tick_e_qcqp_mpc_ >= t_temp_ + 8*t_total_const_)
+    {
+        h_diff = - (zc_mj_ - (com_height - 0.05));
+    }
+    if(walking_tick_e_qcqp_mpc_ >= t_temp_ + 9*t_total_const_)
+    {
+        h_diff = - (zc_mj_ - (com_height - 0.10));
+    }
+    if(walking_tick_e_qcqp_mpc_ >= t_temp_ + 10*t_total_const_)
+    {
+        h_diff = - (zc_mj_ - (com_height - 0.15));
+    }
+    if(walking_tick_e_qcqp_mpc_ >= t_temp_ + 11*t_total_const_)
+    {
+        h_diff = - (zc_mj_ - (com_height - 0.20));
+    }
+    if(walking_tick_e_qcqp_mpc_ >= t_temp_ + 12*t_total_const_)
+    {
+        h_diff = - (zc_mj_ - (com_height - 0.10));
+    }
+    if(walking_tick_e_qcqp_mpc_ >= t_temp_ + 13*t_total_const_)
+    {
+        h_diff = - (zc_mj_ - (com_height - 0.00));
+    }
     //ref_com_e_.block(0,0, norm_size,2) = ref_zmp_mj_.block(0,0, norm_size,2);
     ref_com_e_.block(0,0, norm_size,2) = ref_zmp_e_mpc_.block(0,0, norm_size,2);
     ref_com_e_.block(0,2, norm_size,1).setConstant(zc_mj_ + h_diff);
@@ -17785,8 +17817,8 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
 
     double constr_eps = 1e-5;
     const int sqp_iter_num_ = 2;
-    //double leg_length_max = 0.745;
-    double leg_length_max = param_leg_length_;
+    double leg_length_max = 0.762;
+    //double leg_length_max = param_leg_length_;
     if(eng_int_ == 1) { leg_length_max = 1.0; }
     //double leg_length_min = 0.32;
     Eigen::MatrixXd leg_length(2, N_qcqp);
@@ -20734,20 +20766,29 @@ void AvatarController::dcmcontroller_MPC_foot_e(double mpc_freq, double preview_
 
     double Q_dcm_x, Q_dcm_y, Q_dcm_z, R_dcm_x, R_dcm_y, R_dcm_z, R_f_x, R_f_y, R_df_x, R_df_y;
 
-    Q_dcm_x = param_Q_dcm_x_,  Q_dcm_y = param_Q_dcm_y_,  Q_dcm_z = param_Q_dcm_z_;
-    R_dcm_x = param_R_dcm_x_,  R_dcm_y = param_R_dcm_y_,  R_dcm_z = param_R_dcm_z_;
-    R_f_x   = param_R_f_x_,    R_f_y   = param_R_f_y_;
-    R_df_x  = param_R_df_x_,   R_df_y  = param_R_df_y_; // stepping not 0, previous delf
+    //Q_dcm_x = param_Q_dcm_x_,  Q_dcm_y = param_Q_dcm_y_,  Q_dcm_z = param_Q_dcm_z_;
+    //R_dcm_x = param_R_dcm_x_,  R_dcm_y = param_R_dcm_y_,  R_dcm_z = param_R_dcm_z_;
+    //R_f_x   = param_R_f_x_,    R_f_y   = param_R_f_y_;
+    //R_df_x  = param_R_df_x_,   R_df_y  = param_R_df_y_; // stepping not 0, previous delf
+
+    Q_dcm_x = 1e-0,  Q_dcm_y = 1e-0,  Q_dcm_z = 9e-1;
+    R_dcm_x = 1e-2,  R_dcm_y = 1e-2,  R_dcm_z = 1e-1;
+    R_f_x   = 1e-2,  R_f_y   = 1e-2;
+    R_df_x  = 4e+1,  R_df_y  = 4e+3; // stepping not 0, previous delf
 
     if(current_step_num_qcqp_mpc_ == 0)
     { Q_dcm_y = 5e-1; R_dcm_y = 1e-0; }
 
-    double delf_x_max = 0.25;
-    double delf_x_min = 0.30;
+    //double delf_x_max = 0.25;
+    //double delf_x_min = 0.30;
+    double delf_x_max = 0.0;
+    double delf_x_min = 0.0;
     double delf_dx_max = 0.5;
     double delf_dx_min = 0.5;
-    double delf_y_max = 0.15;
-    double delf_y_min = 0.03;
+    //double delf_y_max = 0.15;
+    //double delf_y_min = 0.03;
+    double delf_y_max = 0.0;
+    double delf_y_min = 0.0;
     double delf_dy_max = 0.5;
     double delf_dy_min = 0.5;
 
@@ -21387,14 +21428,15 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
     double Q_dcm_x, Q_dcm_y, Q_dcm_z, R_dcm_x, R_dcm_y, R_dcm_z, R_f_x, R_f_y, R_df_x, R_df_y;
 
     Q_dcm_x = 1e-0,  Q_dcm_y = 1e-0,  Q_dcm_z = 9e-1;
-    R_dcm_x = 1e-2,  R_dcm_y = 1e-2,  R_dcm_z = 1e-1;
+    //R_dcm_x = 1e-2,  R_dcm_y = 1e-2,  R_dcm_z = 1e-1;
+    R_dcm_x = 9e-1,  R_dcm_y = 1e-2,  R_dcm_z = 1e-1;
     R_f_x   = 1e-2,  R_f_y   = 1e-2;
-    R_df_x  = 2e+1,  R_df_y  = 1e+3;
+    R_df_x  = 4e+1,  R_df_y  = 4e+3;
 
-    Q_dcm_x = param_Q_dcm_x_,  Q_dcm_y = param_Q_dcm_y_,  Q_dcm_z = param_Q_dcm_z_;
-    R_dcm_x = param_R_dcm_x_,  R_dcm_y = param_R_dcm_y_,  R_dcm_z = param_R_dcm_z_;
-    R_f_x   = param_R_f_x_,    R_f_y   = param_R_f_y_;
-    R_df_x  = param_R_df_x_,   R_df_y  = param_R_df_y_; // stepping not 0, previous delf
+    //Q_dcm_x = param_Q_dcm_x_,  Q_dcm_y = param_Q_dcm_y_,  Q_dcm_z = param_Q_dcm_z_;
+    //R_dcm_x = param_R_dcm_x_,  R_dcm_y = param_R_dcm_y_,  R_dcm_z = param_R_dcm_z_;
+    //R_f_x   = param_R_f_x_,    R_f_y   = param_R_f_y_;
+    //R_df_x  = param_R_df_x_,   R_df_y  = param_R_df_y_; // stepping not 0, previous delf
     
     if(current_step_num_qcqp_mpc_ == 0)
     //{ Q_dcm_y = 5e-1; R_dcm_y = 1e-0; }
@@ -21402,9 +21444,11 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
 
     //double delf_x_max = 0.25;
     //double delf_x_max = 0.15;
-    double delf_x_max = param_f_x_max_;
+    //double delf_x_max = param_f_x_max_;
+    double delf_x_max = 0.0;
     //double delf_x_min = 0.30;
-    double delf_x_min = param_f_x_max_;
+    //double delf_x_min = param_f_x_max_;
+    double delf_x_min = 0.0;
     if(eng_int_ != 0) { delf_x_min = 0.0; }
     //if(mpc_tick >= t_total_const_ - t_double2_ - t_rest_last_ - 0.0*hz_) { delf_x_min = 0.0; }
 
@@ -21414,7 +21458,8 @@ void AvatarController::dcmcontroller_MPC_foot_e2(double mpc_freq, double preview
     double delf_y_max = param_f_y_max_;
     if(eng_int_ != 0) { delf_y_max = 0.0; }
 
-    double delf_y_min = 0.03;
+    //double delf_y_min = 0.03;
+    double delf_y_min = 0.0;
     double delf_dy_max = 0.5;
     double delf_dy_min = 0.5;
 
@@ -22356,13 +22401,13 @@ void AvatarController::GravityCalculate_MJ()
 void AvatarController::parameterSetting()
 {       
     //target_x_ = param_target_x_;
-    target_x_ = 0.0;
+    target_x_ = 10.0;
     target_y_ = 0.0;
     target_z_ = 0.0;
     com_height_ = 0.71;
     target_theta_ = 0.0;
     //step_length_x_ = param_step_x_;
-    step_length_x_ = 0.3;
+    step_length_x_ = 0.2;
     step_length_y_ = 0.0;
     is_right_foot_swing_ = 1;
 
