@@ -13342,8 +13342,8 @@ void AvatarController::addZmpOffset()
     {
         //lfoot_zmp_offset_ = -0.04 + (1 - (bool)current_step_num_)*0.01 + 0.06*(bool)(target_x_);
         //rfoot_zmp_offset_ =  0.04 - (1 - (bool)current_step_num_)*0.01 - 0.06*(bool)(target_x_);
-        lfoot_zmp_offset_ = -0.00 + (1 - (bool)current_step_num_)*0.01;
-        rfoot_zmp_offset_ =  0.00 - (1 - (bool)current_step_num_)*0.01;
+        lfoot_zmp_offset_ = -0.04 + (1 - (bool)current_step_num_)*0.01;
+        rfoot_zmp_offset_ =  0.04 - (1 - (bool)current_step_num_)*0.01;
 
         if(current_step_num_ == 3)
         {
@@ -17602,7 +17602,8 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
         Z_x_max(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) + 0.20;
         if(current_step_num_qcqp_mpc_ == 3)
         {
-            Z_x_max(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) + 0.05;
+            //Z_x_max(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) + 0.05;
+            Z_x_max(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) - 0.02;
         }
         Z_x_min(i) = ref_zmp_wo_offset_mpc_(mpc_tick + MPC_synchro_hz_*i,0) - 0.10;
 
@@ -17637,7 +17638,7 @@ void AvatarController::comGenerator_MPC_qcqp(double mpc_qcqp_freq, double dt_qcq
     double constr_eps = 1e-5;
     const int sqp_iter_num_ = 2;
     double leg_length_max = 0.745;
-    leg_length_max = 0.9745;
+    //leg_length_max = 0.9745;
     //double leg_length_min = 0.32;
     Eigen::MatrixXd leg_length(2, N_qcqp);
     for(int sqp_iter = 0; sqp_iter < sqp_iter_num_; sqp_iter++)
