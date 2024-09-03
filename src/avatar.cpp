@@ -15528,7 +15528,7 @@ void AvatarController::comGenerator_thread(const unsigned int norm_size, const u
     Eigen::VectorXd temp_cx, temp_cy, temp_cz;
     double com_x_offset_ = 0.0 + 0.02*(bool)step_length_x_;
 
-    double com_height = 0.725;
+    double com_height = 0.725; //! com 초기 height
     double h_diff = - (zc_mj_ - com_height);
 
     if(walking_tick_e_qcqp_mpc_ <= 0.25*t_temp_)
@@ -15536,9 +15536,9 @@ void AvatarController::comGenerator_thread(const unsigned int norm_size, const u
     else if (walking_tick_e_qcqp_mpc_ <= 0.75*t_temp_)
     { h_diff = - 1.0*(zc_mj_ - com_height); }
 
-    if(walking_tick_e_qcqp_mpc_ >= t_temp_ + 4*t_total_const_)
+    if(walking_tick_e_qcqp_mpc_ >= t_temp_ + 4*t_total_const_) //! 4 번쨰 발
     {
-        h_diff = - (zc_mj_ - (com_height - 0.10));
+        h_diff = - (zc_mj_ - (com_height - 0.10)); //! 높이 변화 10[cm] zc_mj mpc 여서 sommthing 되고 초기 높이 step 으로 바뀌어도 상관은 없음
     }
     if(walking_tick_e_qcqp_mpc_ >= t_temp_ + 6*t_total_const_)
     {
