@@ -1852,9 +1852,12 @@ public:
     double param_ext_force_time_;
     int param_ext_step_num_;
     double econom2_calc;
-    double zmp_x_max = 0.165;
+    //double zmp_x_max = 0.165;
+    double zmp_x_max = 0.13;
+    //double zmp_x_min = 0.05;
     //double zmp_x_min = 0.07;
-    double zmp_x_min = 0.115;
+    double zmp_x_min = 0.09;
+    //double zmp_x_min = 0.115;
     //double zmp_y_max = 0.07;
     double zmp_y_max = 0.065;
     //double zmp_y_min = 0.07;
